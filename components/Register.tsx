@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { User } from '../types';
-import { toTitleCase, formatCEP, formatPhone, generateId } from '../utils';
+import { toTitleCase, formatCEP, formatPhone, formatCPF, isValidCPF, generateId } from '../utils';
 
 const JetSkiLogo = ({ className = "w-10 h-10" }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -22,11 +22,13 @@ const Register: React.FC<Props> = ({ onRegister, onBack }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    cpf: '',
     address: '',
     cep: '',
     phone: '',
     password: ''
   });
+  const [cpfError, setCpfError] = useState('');
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -36,8 +38,14 @@ const Register: React.FC<Props> = ({ onRegister, onBack }) => {
       formattedValue = toTitleCase(value);
     } else if (name === 'cep') {
       formattedValue = formatCEP(value);
+    } else if (name === 'cpf') {
+      formattedValue = formatCPF(value);
     } else if (name === 'phone') {
       formattedValue = formatPhone(value);
+    }
+
+    if (name === 'cpf' && cpfError) {
+      setCpfError('');
     }
 
     setFormData(prev => ({ ...prev, [name]: formattedValue }));
@@ -45,11 +53,18 @@ const Register: React.FC<Props> = ({ onRegister, onBack }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const cpfDigits = formData.cpf.replace(/\D/g, '');
+    if (cpfDigits.length > 0 && !isValidCPF(cpfDigits)) {
+      setCpfError('CPF invalido. Verifique os digitos.');
+      return;
+    }
+
     const newUser: User = {
       id: generateId(),
       registrationCode: 'JET-' + generateId().slice(0, 4),
       name: formData.name,
       email: formData.email,
+      cpf: cpfDigits.length === 0 ? undefined : cpfDigits,
       password: formData.password,
       address: formData.address,
       cep: formData.cep,
@@ -106,6 +121,23 @@ const Register: React.FC<Props> = ({ onRegister, onBack }) => {
                 value={formData.email}
                 onChange={handleChange}
               />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1 ml-1 uppercase">CPF</label>
+              <input
+                name="cpf"
+                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-medium transition-all"
+                placeholder="000.000.000-00"
+                value={formData.cpf}
+                onChange={handleChange}
+                aria-invalid={cpfError ? 'true' : 'false'}
+                aria-describedby={cpfError ? 'cpf-error' : undefined}
+              />
+              {cpfError ? (
+                <p id="cpf-error" className="mt-2 text-xs font-semibold text-red-600">
+                  {cpfError}
+                </p>
+              ) : null}
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1 ml-1 uppercase">Endereço Completo</label>

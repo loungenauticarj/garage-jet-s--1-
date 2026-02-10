@@ -41,6 +41,9 @@ async function getNextRegistrationCode(): Promise<string> {
 // Register new user
 export async function register(userData: RegisterData): Promise<{ user: User | null; error: string | null }> {
     try {
+        const normalizedCpf = userData.cpf?.trim();
+        const cpfValue = normalizedCpf ? normalizedCpf : null;
+
         // Get next registration code
         const registrationCode = await getNextRegistrationCode();
 
@@ -61,11 +64,11 @@ export async function register(userData: RegisterData): Promise<{ user: User | n
         }
 
         // Prevent duplicate CPF
-        if (userData.cpf) {
+        if (cpfValue) {
             const { data: existingCpf, error: cpfError } = await supabase
                 .from('users')
                 .select('id')
-                .eq('cpf', userData.cpf)
+            .eq('cpf', cpfValue)
                 .maybeSingle();
 
             if (cpfError) {
@@ -86,7 +89,7 @@ export async function register(userData: RegisterData): Promise<{ user: User | n
                     email: userData.email,
                     name: userData.name,
                     phone: userData.phone,
-                    cpf: userData.cpf,
+                    cpf: cpfValue,
                     address: userData.address,
                     cep: userData.cep,
                     registration_code: registrationCode,

@@ -52,9 +52,13 @@ export async function updateUser(userId: string, updates: Partial<User>): Promis
     try {
         const updateData: any = {};
 
+        const normalizedCpf = updates.cpf?.trim();
+        if (updates.cpf !== undefined) {
+            updateData.cpf = normalizedCpf ? normalizedCpf : null;
+        }
+
         if (updates.name !== undefined) updateData.name = updates.name;
         if (updates.phone !== undefined) updateData.phone = updates.phone;
-        if (updates.cpf !== undefined) updateData.cpf = updates.cpf;
         if (updates.address !== undefined) updateData.address = updates.address;
         if (updates.cep !== undefined) updateData.cep = updates.cep;
         if (updates.monthlyDueDate !== undefined) updateData.monthly_due_date = updates.monthlyDueDate;
