@@ -1,0 +1,8 @@
+
+{
+  "name": "GARAGE JET´S",
+  "description": "A comprehensive jet-ski management system connecting clients with marina staff, featuring reservation tracking, financial management, and real-time status updates with photo check-ins.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
