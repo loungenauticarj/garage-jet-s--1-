@@ -507,9 +507,20 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                     </span>
                     <h4 className="font-bold text-sm text-gray-900">{res.route}</h4>
                   </div>
-                  <div className={`text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase ${res.status === JetStatus.CHECKED_IN ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
-                    }`}>
-                    {StatusLabels[res.status]}
+                  <div className="flex items-center gap-2">
+                    <div className={`text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase ${res.status === JetStatus.CHECKED_IN ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                      }`}>
+                      {StatusLabels[res.status]}
+                    </div>
+                    {res.status !== JetStatus.CHECKED_IN && (
+                      <button
+                        onClick={() => onDeleteReservation(res.id)}
+                        className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-600 text-white hover:bg-red-700 transition"
+                        title="Excluir agendamento"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
                 </div>
 
