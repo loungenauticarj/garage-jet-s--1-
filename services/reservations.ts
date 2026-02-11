@@ -6,7 +6,7 @@ export async function getUserReservations(userId: string): Promise<{ reservation
     try {
         const { data, error } = await supabase
             .from('reservations')
-            .select('*')
+            .select('*, users:users (jet_name)')
             .eq('user_id', userId)
             .order('created_at', { ascending: false });
 
@@ -25,7 +25,7 @@ export async function getUserReservations(userId: string): Promise<{ reservation
             id: r.id,
             userId: r.user_id,
             userName: r.user_name,
-            jetName: r.jet_name || r.jetName || '',
+            jetName: r.jet_name || r.jetName || r.users?.jet_name || '',
             date: r.date,
             time: r.time,
             route: r.route,
@@ -45,7 +45,7 @@ export async function getAllReservations(): Promise<{ reservations: Reservation[
     try {
         const { data, error } = await supabase
             .from('reservations')
-            .select('*')
+            .select('*, users:users (jet_name)')
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -63,7 +63,7 @@ export async function getAllReservations(): Promise<{ reservations: Reservation[
             id: r.id,
             userId: r.user_id,
             userName: r.user_name,
-            jetName: r.jet_name || r.jetName || '',
+            jetName: r.jet_name || r.jetName || r.users?.jet_name || '',
             date: r.date,
             time: r.time,
             route: r.route,
