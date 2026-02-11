@@ -390,6 +390,26 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                     </svg>
                   </button>
                 </div>
+                
+                {/* Debug Info Card */}
+                <div className="mb-3 p-2.5 bg-gray-50 rounded-lg border border-gray-200 text-[11px]">
+                  <p className="mb-1"><strong>🎯 Jet:</strong> {user.jetName || 'Não definido'}</p>
+                  <p className="mb-1"><strong>👤 Tipo:</strong> {user.ownerType === 'COTISTA' ? 'Cotista (Compartilhado)' : 'Único'}</p>
+                  {user.ownerType === 'COTISTA' && (
+                    <p className="text-gray-600">
+                      <strong>📅 Agendamentos:</strong> {reservations.filter(r => r.status !== JetStatus.CHECKED_IN).length} ativo(s)
+                      {reservations.filter(r => r.status !== JetStatus.CHECKED_IN).length > 0 && (
+                        <span className="block mt-1 text-gray-700">
+                          {reservations
+                            .filter(r => r.status !== JetStatus.CHECKED_IN)
+                            .map(r => r.date.split('-').reverse().join('/'))
+                            .join(', ')}
+                        </span>
+                      )}
+                    </p>
+                  )}
+                </div>
+
                 <form onSubmit={handleSubmitRes} className="space-y-2.5">
                   <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Data</label>
@@ -478,6 +498,31 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                         <span className="inline-block w-3 h-3 rounded bg-red-200 border"></span>
                         Dias reservados para este jet
                       </div>
+                      
+                      {/* Lista de dias reservados */}
+                      {user.ownerType === 'COTISTA' && reservedDates.size > 0 && (
+                        <div className="mt-3 p-2 bg-red-50 rounded border border-red-100 text-[10px] text-gray-700">
+                          <p className="font-bold text-red-700 mb-1">📌 Datas Bloqueadas:</p>
+                          <div className="space-y-1">
+                            {Array.from(reservedDates)
+                              .sort()
+                              .map(date => {
+                                const blockingRes = allReservations.find(r => 
+                                  r.date === date && 
+                                  r.status !== JetStatus.CHECKED_IN && 
+                                  r.jetName === user.jetName
+                                );
+                                return (
+                                  <span key={date} className="block">
+                                    • {date.split('-').reverse().join('/')}
+                                    {blockingRes && blockingRes.userId !== user.id && ` (${blockingRes.userName})`}
+                                  </span>
+                                );
+                              })
+                            }
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <input type="hidden" required value={newRes.date} readOnly />
                   </div>
