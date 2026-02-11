@@ -377,7 +377,19 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
             <div className="flex gap-4 items-start">
               {/* Formulário à esquerda */}
               <div className="bg-white p-3 rounded-lg shadow-lg border border-blue-600 animate-in slide-in-from-bottom-4 duration-300 flex-1 max-w-sm">
-                <h4 className="font-black text-base text-blue-900 mb-3">Agendar Saída</h4>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-black text-base text-blue-900">Agendar Saída</h4>
+                  <button
+                    type="button"
+                    onClick={() => setShowResForm(false)}
+                    className="text-gray-400 hover:text-gray-600 transition"
+                    title="Voltar"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
                 <form onSubmit={handleSubmitRes} className="space-y-2.5">
                   <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Data</label>
@@ -478,8 +490,13 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                     <input type="text" required placeholder="Ex: Ilhas Cagarras" className="w-full p-2.5 border bg-gray-50 rounded-md font-medium text-sm" value={newRes.route} onChange={(e) => setNewRes({ ...newRes, route: e.target.value })} />
                   </div>
                   <div className="flex gap-2">
-                    <button type="button" onClick={() => setShowResForm(false)} className="flex-1 bg-gray-100 text-gray-600 p-2.5 rounded-md font-bold text-sm">CANCELAR</button>
-                    <button type="submit" className="flex-[2] bg-blue-600 text-white p-2.5 rounded-md font-bold shadow-md text-sm">CONFIRMAR</button>
+                    <button type="button" onClick={() => setShowResForm(false)} className="flex-1 bg-gray-100 text-gray-600 hover:bg-gray-200 p-2.5 rounded-md font-bold text-sm transition flex items-center justify-center gap-1">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                      </svg>
+                      VOLTAR
+                    </button>
+                    <button type="submit" className="flex-[2] bg-blue-600 text-white hover:bg-blue-700 p-2.5 rounded-md font-bold shadow-md text-sm transition">CONFIRMAR</button>
                   </div>
                 </form>
               </div>
