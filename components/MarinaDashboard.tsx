@@ -230,26 +230,37 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
 
   return (
     <div className="space-y-6 pb-20">
-      <nav className="flex bg-white rounded-xl shadow-sm border p-1 sticky top-4 z-20 overflow-x-auto">
+      <div className="flex items-center justify-between">
+        <nav className="flex bg-white rounded-xl shadow-sm border p-1 sticky top-4 z-20 overflow-x-auto flex-1">
+          <button
+            onClick={() => setActiveTab('OPERATIONS')}
+            className={`flex-1 min-w-[120px] py-2 text-sm font-bold rounded-lg transition ${activeTab === 'OPERATIONS' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
+          >
+            Painel Principal
+          </button>
+          <button
+            onClick={() => setActiveTab('CLIENTS')}
+            className={`flex-1 min-w-[120px] py-2 text-sm font-bold rounded-lg transition ${activeTab === 'CLIENTS' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
+          >
+            Clientes
+          </button>
+          <button
+            onClick={() => setActiveTab('FINANCE')}
+            className={`flex-1 min-w-[120px] py-2 text-sm font-bold rounded-lg transition ${activeTab === 'FINANCE' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
+          >
+            Financeiro
+          </button>
+        </nav>
         <button
-          onClick={() => setActiveTab('OPERATIONS')}
-          className={`flex-1 min-w-[120px] py-2 text-sm font-bold rounded-lg transition ${activeTab === 'OPERATIONS' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
+          onClick={() => window.location.reload()}
+          className="ml-3 p-2.5 bg-white rounded-xl shadow-sm border border-gray-200 hover:bg-gray-50 transition text-gray-600 hover:text-blue-600"
+          title="Atualizar página"
         >
-          Painel Principal
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
         </button>
-        <button
-          onClick={() => setActiveTab('CLIENTS')}
-          className={`flex-1 min-w-[120px] py-2 text-sm font-bold rounded-lg transition ${activeTab === 'CLIENTS' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
-        >
-          Clientes
-        </button>
-        <button
-          onClick={() => setActiveTab('FINANCE')}
-          className={`flex-1 min-w-[120px] py-2 text-sm font-bold rounded-lg transition ${activeTab === 'FINANCE' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
-        >
-          Financeiro
-        </button>
-      </nav>
+      </div>
 
       {activeTab === 'OPERATIONS' && (
         <div className="space-y-8 animate-in fade-in duration-500">
