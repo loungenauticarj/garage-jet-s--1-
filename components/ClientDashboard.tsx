@@ -42,6 +42,18 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
       return;
     }
 
+    // Validate: each cotista can have only 1 active reservation at a time
+    if (user.ownerType === 'COTISTA') {
+      const activeReservations = reservations.filter(r => 
+        r.status !== JetStatus.CHECKED_IN
+      );
+      
+      if (activeReservations.length > 0) {
+        alert('Você já possui um agendamento ativo. Aguarde o check-in para fazer novo agendamento.');
+        return;
+      }
+    }
+
     // Validate: only one departure per jet on the same day (COTISTA only)
     if (user.ownerType === 'COTISTA' && user.jetName) {
       const conflict = allReservations.find(r =>
@@ -309,13 +321,26 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
           </div>
 
           {!showResForm ? (
-            <button
-              onClick={() => setShowResForm(true)}
-              className="w-full bg-blue-600 text-white font-black py-4 rounded-xl shadow-lg hover:bg-blue-700 transition transform active:scale-95 flex items-center justify-center gap-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-              RESERVAR SAÍDA
-            </button>
+            (() => {
+              const hasActiveReservation = user.ownerType === 'COTISTA' && 
+                reservations.some(r => r.status !== JetStatus.CHECKED_IN);
+              
+              return (
+                <button
+                  onClick={() => setShowResForm(true)}
+                  disabled={hasActiveReservation}
+                  title={hasActiveReservation ? 'Complete seu agendamento atual antes de fazer um novo' : ''}
+                  className={`w-full font-black py-4 rounded-xl shadow-lg transition transform active:scale-95 flex items-center justify-center gap-2 ${
+                    hasActiveReservation 
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                  {hasActiveReservation ? 'AGENDAMENTO ATIVO - AGUARDE CHECK-IN' : 'RESERVAR SAÍDA'}
+                </button>
+              );
+            })()
           ) : (
             <div className="flex gap-4 items-start">
               {/* Formulário à esquerda */}
