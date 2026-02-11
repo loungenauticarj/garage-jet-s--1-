@@ -43,7 +43,7 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
     }
 
     // Validate: only one departure per jet group (jetName) on the same day
-    if (user.jetName) {
+    if (user.ownerType === 'COTISTA' && user.jetName) {
       const conflict = allReservations.find(r =>
         r.date === newRes.date &&
         r.status !== JetStatus.CHECKED_IN &&
@@ -57,6 +57,20 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
         }
 
         alert('Você já possui um agendamento para este dia com este jet.');
+        return;
+      }
+    }
+
+    // For UNICO owners, check if they already have a reservation on the same day
+    if (user.ownerType === 'UNICO') {
+      const conflict = allReservations.find(r =>
+        r.userId === user.id &&
+        r.date === newRes.date &&
+        r.status !== JetStatus.CHECKED_IN
+      );
+
+      if (conflict) {
+        alert('Você já possui um agendamento para este dia.');
         return;
       }
     }
