@@ -15,6 +15,16 @@ export const StatusLabels: Record<JetStatus, string> = {
   [JetStatus.CHECKED_IN]: 'Check-in e fotos do jet'
 };
 
+export interface JetGroup {
+  id: string;
+  jetName: string;
+  manufacturer: string;
+  model: string;
+  year: string;
+  maxCotistas: number;
+  createdAt?: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -33,6 +43,7 @@ export interface User {
   jetSkiModel: string;
   jetSkiYear: string;
   jetName?: string; // Name/identifier of the jet ski (required for COTISTA, optional for UNICO)
+  jetGroupId?: string; // Group ID for COTISTA owners
   ownerType: 'UNICO' | 'COTISTA'; // Owner type: Único (single owner) or Cotista (co-owner)
   cpf?: string; // Optional CPF field
 }
