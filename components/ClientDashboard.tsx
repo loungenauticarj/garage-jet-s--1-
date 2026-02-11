@@ -35,6 +35,8 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
     route: ''
   });
 
+  const normalizeJetName = (value?: string) => (value || '').trim().toLowerCase();
+
   const handleSubmitRes = (e: React.FormEvent) => {
     e.preventDefault();
     if (user.isBlocked) {
@@ -76,7 +78,7 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
       const conflict = allReservations.find(r =>
         r.date === newRes.date &&
         r.status !== JetStatus.CHECKED_IN &&
-        r.jetName === user.jetName
+        normalizeJetName(r.jetName) === normalizeJetName(user.jetName)
       );
 
       if (conflict) {
@@ -115,7 +117,7 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
     return allReservations.find(r =>
       r.date === date &&
       r.status !== JetStatus.CHECKED_IN &&
-      r.jetName === user.jetName &&
+      normalizeJetName(r.jetName) === normalizeJetName(user.jetName) &&
       r.id !== excludeId
     );
   };
@@ -129,7 +131,7 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
   const reservedDates = new Set(
     user.jetName
       ? allReservations
-          .filter(r => r.status !== JetStatus.CHECKED_IN && r.jetName === user.jetName)
+          .filter(r => r.status !== JetStatus.CHECKED_IN && normalizeJetName(r.jetName) === normalizeJetName(user.jetName))
           .map(r => r.date)
       : []
   );
@@ -510,7 +512,7 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                                 const blockingRes = allReservations.find(r => 
                                   r.date === date && 
                                   r.status !== JetStatus.CHECKED_IN && 
-                                  r.jetName === user.jetName
+                                  normalizeJetName(r.jetName) === normalizeJetName(user.jetName)
                                 );
                                 return (
                                   <span key={date} className="block">
