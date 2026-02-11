@@ -45,6 +45,18 @@ const App: React.FC = () => {
     loadUser();
   }, []);
 
+  // Auto-refresh data every 10 seconds
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const user = authService.getCurrentUser();
+      if (user) {
+        await loadData(user);
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Load data based on user role
   const loadData = async (user: User) => {
     if (user.role === 'MARINA') {
