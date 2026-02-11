@@ -46,16 +46,26 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
     const today = new Date().toLocaleDateString('en-CA');
 
     // Validate: each cotista can have only 1 active reservation at a time
-    // But allow new reservation if today is free (even if they have a future reservation)
+    // But allow new reservation ONLY for today if there's a future reservation
     if (user.ownerType === 'COTISTA') {
       const activeReservations = reservations.filter(r => 
         r.status !== JetStatus.CHECKED_IN
       );
       
-      // Check if there's an active reservation for today or earlier
-      const hasConflictToday = activeReservations.some(r => r.date <= today);
+      // Check if there's an active reservation for today or later
+      const hasFutureReservation = activeReservations.some(r => r.date >= today);
       
-      if (hasConflictToday) {
+      if (hasFutureReservation) {
+        // If they have a future reservation, they can only book for today
+        if (newRes.date !== today) {
+          alert('Você possui um agendamento futuro. Só pode agendar para hoje.');
+          return;
+        }
+      }
+      
+      // Check if there's an active reservation for today (or past dates)
+      const hasTodayOrPastReservation = activeReservations.some(r => r.date <= today);
+      if (hasTodayOrPastReservation && newRes.date <= today) {
         alert('Você já possui um agendamento ativo. Aguarde o check-in para fazer novo agendamento.');
         return;
       }
@@ -125,6 +135,20 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
   );
 
   const handleDateChange = (value: string) => {
+    const today = new Date().toLocaleDateString('en-CA');
+    
+    // Check if cotista has a future reservation
+    if (user.ownerType === 'COTISTA') {
+      const hasFutureReservation = reservations.some(r => 
+        r.status !== JetStatus.CHECKED_IN && r.date >= today
+      );
+      
+      if (hasFutureReservation && value !== today) {
+        alert('Você possui um agendamento futuro. Só pode agendar para hoje.');
+        return;
+      }
+    }
+
     const conflict = findJetDateConflict(value);
 
     if (conflict) {
@@ -389,6 +413,7 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                           const daysInMonth = new Date(year, month + 1, 0).getDate();
                           const startDay = new Date(year, month, 1).getDay();
                           const cells: (number | null)[] = [];
+                          const today = new Date().toLocaleDateString('en-CA');
 
                           for (let i = 0; i < startDay; i += 1) {
                             cells.push(null);
@@ -398,6 +423,10 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                             cells.push(day);
                           }
 
+                          // Check if cotista has a future reservation
+                          const hasFutureReservation = user.ownerType === 'COTISTA' && 
+                            reservations.some(r => r.status !== JetStatus.CHECKED_IN && r.date >= today);
+
                           return cells.map((day, index) => {
                             if (!day) {
                               return <div key={`empty-${index}`} />;
@@ -406,10 +435,17 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                             const dateStr = buildDateString(year, month, day);
                             const isReserved = reservedDates.has(dateStr);
                             const isSelected = newRes.date === dateStr;
+                            const isNotToday = dateStr !== today;
+                            const isDisabledForFutureRes = hasFutureReservation && isNotToday;
 
                             const baseClass = 'w-full py-1 rounded text-xs font-bold';
-                            const reservedClass = isReserved ? 'bg-red-200 text-red-800 cursor-not-allowed' : 'bg-white border text-gray-700';
-                            const selectedClass = isSelected ? 'bg-blue-600 text-white' : reservedClass;
+                            let buttonClass = isReserved ? 'bg-red-200 text-red-800 cursor-not-allowed' : 'bg-white border text-gray-700';
+                            
+                            if (isDisabledForFutureRes) {
+                              buttonClass = 'bg-gray-200 text-gray-500 cursor-not-allowed';
+                            }
+                            
+                            const selectedClass = isSelected && !isDisabledForFutureRes ? 'bg-blue-600 text-white' : buttonClass;
 
                             return (
                               <button
@@ -417,8 +453,8 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                                 key={dateStr}
                                 className={`${baseClass} ${selectedClass}`}
                                 onClick={() => handleDateChange(dateStr)}
-                                disabled={isReserved}
-                                title={isReserved ? 'RESERVADO' : ''}
+                                disabled={isReserved || isDisabledForFutureRes}
+                                title={isReserved ? 'RESERVADO' : isDisabledForFutureRes ? 'Só pode agendar para hoje' : ''}
                               >
                                 {day}
                               </button>
