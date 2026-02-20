@@ -269,90 +269,26 @@ export async function login(email: string, password: string, role: 'CLIENT' | 'M
             if (email !== operationalEmail || password !== operationalPassword) {
                 return { user: null, error: 'Credenciais operacionais inválidas' };
             }
-
-            const { data, error } = await supabase
-                .from('users')
-                .select('*')
-                .eq('email', operationalEmail)
-                .eq('role', 'OPERATIONAL')
-                .single();
-
-            if (error || !data) {
-                const { data: newOperational, error: createError } = await supabase
-                    .from('users')
-                    .insert([
-                        {
-                            email: operationalEmail,
-                            name: 'Operacional Marina',
-                            phone: '0000000000',
-                            cpf: '00000000000',
-                            address: 'Marina',
-                            cep: '00000000',
-                            registration_code: '001',
-                            role: 'OPERATIONAL',
-                            monthly_due_date: 1,
-                            monthly_value: 0,
-                            is_blocked: false,
-                            jet_ski_manufacturer: 'N/A',
-                            jet_ski_model: 'N/A',
-                            jet_ski_year: '2024',
-                        },
-                    ])
-                    .select()
-                    .single();
-
-                if (createError) {
-                    return { user: null, error: 'Erro ao criar usuário operacional' };
-                }
-
-                localStorage.setItem(`pwd_${operationalEmail}`, operationalPassword);
-
-                const user: User = {
-                    id: newOperational.id,
-                    email: newOperational.email,
-                    name: newOperational.name,
-                    phone: newOperational.phone,
-                    cpf: newOperational.cpf,
-                    address: newOperational.address,
-                    cep: newOperational.cep,
-                    registrationCode: newOperational.registration_code,
-                    role: newOperational.role,
-                    monthlyDueDate: newOperational.monthly_due_date,
-                    monthlyValue: newOperational.monthly_value,
-                    isBlocked: newOperational.is_blocked,
-                    jetSkiManufacturer: newOperational.jet_ski_manufacturer,
-                    jetSkiModel: newOperational.jet_ski_model,
-                    jetSkiYear: newOperational.jet_ski_year,
-                    jetName: newOperational.jet_name || '',
-                    ownerType: newOperational.owner_type || 'UNICO',
-                };
-
-                return { user, error: null };
-            }
-
-            const storedPassword = localStorage.getItem(`pwd_${operationalEmail}`);
-            if (!storedPassword) {
-                localStorage.setItem(`pwd_${operationalEmail}`, operationalPassword);
-            }
+            localStorage.setItem(`pwd_${operationalEmail}`, operationalPassword);
 
             const user: User = {
-                id: data.id,
-                email: data.email,
-                name: data.name,
-                phone: data.phone,
-                cpf: data.cpf,
-                address: data.address,
-                cep: data.cep,
-                registrationCode: data.registration_code,
-                role: data.role,
-                monthlyDueDate: data.monthly_due_date,
-                monthlyValue: data.monthly_value,
-                isBlocked: data.is_blocked,
-                jetSkiManufacturer: data.jet_ski_manufacturer,
-                jetSkiModel: data.jet_ski_model,
-                jetSkiYear: data.jet_ski_year,
-                jetName: data.jet_name || '',
-                ownerType: data.owner_type || 'UNICO',
+                id: 'operational-local',
+                email: operationalEmail,
+                name: 'Operacional Marina',
+                phone: '0000000000',
+                cpf: '00000000000',
+                address: 'Marina',
+                cep: '00000000',
+                registrationCode: '001',
+                role: 'OPERATIONAL',
+                monthlyDueDate: 1,
+                monthlyValue: 0,
+                isBlocked: false,
+                jetSkiManufacturer: 'N/A',
+                jetSkiModel: 'N/A',
+                jetSkiYear: '2024',
+                jetName: '',
+                ownerType: 'UNICO',
             };
 
             return { user, error: null };
