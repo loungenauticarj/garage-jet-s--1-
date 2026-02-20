@@ -119,6 +119,16 @@ export async function updateUser(userId: string, updates: Partial<User>): Promis
 // Delete user
 export async function deleteUser(userId: string): Promise<{ success: boolean; error: string | null }> {
     try {
+        const { error: reservationsError } = await supabase
+            .from('reservations')
+            .delete()
+            .eq('user_id', userId);
+
+        if (reservationsError) {
+            console.error('Error deleting user reservations:', reservationsError);
+            return { success: false, error: `Erro ao remover reservas do cliente: ${reservationsError.message}` };
+        }
+
         const { error } = await supabase
             .from('users')
             .delete()
@@ -126,7 +136,7 @@ export async function deleteUser(userId: string): Promise<{ success: boolean; er
 
         if (error) {
             console.error('Error deleting user:', error);
-            return { success: false, error: error.message };
+            return { success: false, error: `Erro ao remover cliente: ${error.message}` };
         }
 
         return { success: true, error: null };
