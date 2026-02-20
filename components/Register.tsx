@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { User } from '../types';
-import { toTitleCase, formatCEP, formatPhone, formatCPF, isValidCPF, generateId } from '../utils';
+import { formatCEP, formatCPF, formatPhone, generateId, isValidCPF, toTitleCase } from '../utils';
 
 const JetSkiLogo = ({ className = "w-10 h-10" }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

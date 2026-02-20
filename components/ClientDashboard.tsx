@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { User, Reservation, JetStatus, StatusLabels } from '../types';
+import { JetStatus, Reservation, StatusLabels, User } from '../types';
 import { generateId } from '../utils';
 
 const JetSkiIcon = ({ className = "w-10 h-10" }: { className?: string }) => (

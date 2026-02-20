@@ -59,3 +59,33 @@ export const MOCK_MARINA_USER: any = {
   role: 'MARINA',
   isBlocked: false,
 };
+
+export const clearDeletedUserLocalData = (userId: string, userEmail?: string) => {
+  if (userEmail) {
+    localStorage.removeItem(`pwd_${userEmail}`);
+  }
+
+  const localStorageKeysToRemove: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+
+    const matchesReservationCacheById =
+      key === `reservations_${userId}` ||
+      key.startsWith(`reservation_${userId}_`) ||
+      key.startsWith(`reservations_${userId}_`);
+
+    const matchesReservationCacheByEmail =
+      !!userEmail && (
+        key === `reservations_${userEmail}` ||
+        key.startsWith(`reservation_${userEmail}_`) ||
+        key.startsWith(`reservations_${userEmail}_`)
+      );
+
+    if (matchesReservationCacheById || matchesReservationCacheByEmail) {
+      localStorageKeysToRemove.push(key);
+    }
+  }
+
+  localStorageKeysToRemove.forEach((key) => localStorage.removeItem(key));
+};

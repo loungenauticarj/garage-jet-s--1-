@@ -1,5 +1,5 @@
 import { supabase } from '../supabaseClient';
-import { Reservation, JetStatus } from '../types';
+import { JetStatus, Reservation } from '../types';
 
 // Get user reservations
 export async function getUserReservations(userId: string): Promise<{ reservations: Reservation[]; error: string | null }> {

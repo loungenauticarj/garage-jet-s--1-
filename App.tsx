@@ -1,13 +1,20 @@
 
-import React, { useState, useEffect } from 'react';
-import { User, Reservation } from './types';
-import Login from './components/Login';
-import Register from './components/Register';
+import React, { useEffect, useState } from 'react';
 import ClientDashboard from './components/ClientDashboard';
+import Login from './components/Login';
 import MarinaDashboard from './components/MarinaDashboard';
+import Register from './components/Register';
 import * as authService from './services/auth';
-import * as usersService from './services/users';
 import * as reservationsService from './services/reservations';
+import * as usersService from './services/users';
+import { Reservation, User } from './types';
+import {
+  useReservationCreate,
+  useReservationDelete,
+  useReservationUpdate,
+  useUserDeletion,
+  useUserUpdate,
+} from './hooks';
 
 const JetSkiLogo = ({ className = "w-8 h-8" }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -125,85 +132,28 @@ const App: React.FC = () => {
     setView('LOGIN');
   };
 
-  const updateReservation = async (updatedRes: Reservation) => {
-    const { reservation, error } = await reservationsService.updateReservation(updatedRes.id, updatedRes);
+  const { updateReservation } = useReservationUpdate({ setReservations });
 
-    if (error) {
-      alert('Erro ao atualizar reserva: ' + error);
-      return;
-    }
+  const { deleteReservation } = useReservationDelete({ setReservations });
 
-    if (reservation) {
-      setReservations(prev => prev.map(r => r.id === reservation.id ? reservation : r));
-    }
-  };
+  const { addReservation } = useReservationCreate({
+    currentUser,
+    setReservations,
+  });
 
-  const deleteReservation = async (reservationId: string) => {
-    if (!window.confirm('Tem certeza que deseja excluir este agendamento?')) return;
+  const { updateUser } = useUserUpdate({ setUsers });
 
-    const { success, error } = await reservationsService.deleteReservation(reservationId);
-
-    if (error) {
-      alert('Erro ao deletar reserva: ' + error);
-      return;
-    }
-
-    if (success) {
-      setReservations(prev => prev.filter(r => r.id !== reservationId));
-    }
-  };
-
-
-  const addReservation = async (newRes: Reservation) => {
-    if (!currentUser) return;
-
-    const { reservation, error } = await reservationsService.createReservation(
-      currentUser.id,
-      currentUser.name,
-      newRes.date,
-      newRes.time,
-      newRes.route,
-      currentUser.jetName
-    );
-
-    if (error) {
-      alert('Erro ao criar reserva: ' + error);
-      return;
-    }
-
-    if (reservation) {
-      setReservations(prev => [...prev, reservation]);
-    }
-  };
-
-  const updateUser = async (updatedUser: User) => {
-    const { user, error } = await usersService.updateUser(updatedUser.id, updatedUser);
-
-    if (error) {
-      alert('Erro ao atualizar usuário: ' + error);
-      return;
-    }
-
-    if (user) {
-      setUsers(prev => prev.map(u => u.id === user.id ? user : u));
-    }
-  };
-
-  const deleteUser = async (userId: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este cliente permanentemente? Todas as reservas associadas também serão removidas.')) {
-      const { success, error } = await usersService.deleteUser(userId);
-
-      if (error) {
-        alert('Erro ao deletar usuário: ' + error);
-        return;
-      }
-
-      if (success) {
-        setUsers(prev => prev.filter(u => u.id !== userId));
-        setReservations(prev => prev.filter(r => r.userId !== userId));
-      }
-    }
-  };
+  const { deleteUser } = useUserDeletion({
+    users,
+    currentUser,
+    setUsers,
+    setReservations,
+    onDeletedCurrentUser: () => {
+      localStorage.removeItem('currentUser');
+      setCurrentUser(null);
+      setView('LOGIN');
+    },
+  });
 
   if (loading) {
     return (

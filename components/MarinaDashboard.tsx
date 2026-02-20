@@ -1,7 +1,7 @@
 
-import React, { useState, useRef } from 'react';
-import { User, Reservation, JetStatus, StatusLabels } from '../types';
-import { toTitleCase, formatCEP, formatPhone } from '../utils';
+import React, { useRef, useState } from 'react';
+import { JetStatus, Reservation, StatusLabels, User } from '../types';
+import { formatCEP, formatPhone, toTitleCase } from '../utils';
 
 const JET_NAMES = [
   'Gti170 2022',
