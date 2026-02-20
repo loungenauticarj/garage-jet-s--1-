@@ -29,3 +29,39 @@ INSERT INTO jet_groups (jet_name, manufacturer, model, year, max_cotistas) VALUE
 ('Rxt300 2020', 'Sea-Doo', 'RXt 300', '2020', 6),
 ('Wake170 2024', 'Sea-Doo', 'Wake 170', '2024', 10)
 ON CONFLICT DO NOTHING;
+
+-- Inserir usuario operacional (somente se nao existir)
+INSERT INTO users (
+  email,
+  name,
+  phone,
+  cpf,
+  address,
+  cep,
+  registration_code,
+  role,
+  monthly_due_date,
+  monthly_value,
+  is_blocked,
+  jet_ski_manufacturer,
+  jet_ski_model,
+  jet_ski_year
+)
+SELECT
+  'operacional@marina.com',
+  'Operacional Marina',
+  '0000000000',
+  '00000000000',
+  'Marina',
+  '00000000',
+  '001',
+  'OPERATIONAL',
+  1,
+  0,
+  false,
+  'N/A',
+  'N/A',
+  '2024'
+WHERE NOT EXISTS (
+  SELECT 1 FROM users WHERE email = 'operacional@marina.com'
+);
