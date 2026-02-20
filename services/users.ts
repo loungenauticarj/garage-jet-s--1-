@@ -47,6 +47,47 @@ export async function getAllUsers(): Promise<{ users: User[]; error: string | nu
     }
 }
 
+// Get user by id
+export async function getUserById(userId: string): Promise<{ user: User | null; error: string | null }> {
+    try {
+        const { data, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', userId)
+            .single();
+
+        if (error) {
+            console.error('Error fetching user by id:', error);
+            return { user: null, error: error.message };
+        }
+
+        const user: User = {
+            id: data.id,
+            email: data.email,
+            name: data.name,
+            phone: data.phone,
+            cpf: data.cpf,
+            address: data.address,
+            cep: data.cep,
+            registrationCode: data.registration_code,
+            role: data.role,
+            ownerType: data.owner_type || 'UNICO',
+            jetName: data.jet_name || '',
+            monthlyDueDate: data.monthly_due_date,
+            monthlyValue: data.monthly_value,
+            isBlocked: data.is_blocked,
+            jetSkiManufacturer: data.jet_ski_manufacturer,
+            jetSkiModel: data.jet_ski_model,
+            jetSkiYear: data.jet_ski_year,
+        };
+
+        return { user, error: null };
+    } catch (err: any) {
+        console.error('Unexpected error fetching user by id:', err);
+        return { user: null, error: err.message };
+    }
+}
+
 // Update user
 export async function updateUser(userId: string, updates: Partial<User>): Promise<{ user: User | null; error: string | null }> {
     try {

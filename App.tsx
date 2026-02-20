@@ -7,6 +7,7 @@ import Register from './components/Register';
 import * as authService from './services/auth';
 import * as reservationsService from './services/reservations';
 import * as usersService from './services/users';
+import { supabase } from './supabaseClient';
 import { Reservation, User } from './types';
 import {
   useReservationCreate,
@@ -52,17 +53,62 @@ const App: React.FC = () => {
     loadUser();
   }, []);
 
-  // Auto-refresh data every 10 seconds
+  // Auto-refresh data every 3 seconds
   useEffect(() => {
     const interval = setInterval(async () => {
       const user = authService.getCurrentUser();
       if (user) {
         await loadData(user);
       }
-    }, 10000);
+    }, 3000);
 
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!currentUser || currentUser.role !== 'CLIENT') return;
+
+    const channel = supabase
+      .channel(`user-updates-${currentUser.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'users',
+          filter: `id=eq.${currentUser.id}`,
+        },
+        (payload) => {
+          const updated = payload.new as any;
+          const refreshedUser: User = {
+            id: updated.id,
+            email: updated.email,
+            name: updated.name,
+            phone: updated.phone,
+            cpf: updated.cpf,
+            address: updated.address,
+            cep: updated.cep,
+            registrationCode: updated.registration_code,
+            role: updated.role,
+            ownerType: updated.owner_type || 'UNICO',
+            jetName: updated.jet_name || '',
+            monthlyDueDate: updated.monthly_due_date,
+            monthlyValue: updated.monthly_value,
+            isBlocked: updated.is_blocked,
+            jetSkiManufacturer: updated.jet_ski_manufacturer,
+            jetSkiModel: updated.jet_ski_model,
+            jetSkiYear: updated.jet_ski_year,
+          };
+          setCurrentUser(refreshedUser);
+          authService.saveCurrentUser(refreshedUser);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser]);
 
   // Load data based on user role
   const loadData = async (user: User) => {
@@ -74,6 +120,11 @@ const App: React.FC = () => {
       setReservations(allReservations);
     } else {
       // Load all reservations for CLIENT to enforce jet group blocking
+      const { user: refreshedUser } = await usersService.getUserById(user.id);
+      if (refreshedUser) {
+        setCurrentUser(refreshedUser);
+        authService.saveCurrentUser(refreshedUser);
+      }
       const { reservations: allReservations } = await reservationsService.getAllReservations();
       setReservations(allReservations);
     }
