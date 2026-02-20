@@ -42,6 +42,18 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
   const [financeSearch, setFinanceSearch] = useState('');
   const [clientSearch, setClientSearch] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [jetNames, setJetNames] = useState<string[]>(() => {
+    const storedJetNames = localStorage.getItem('marina_jet_names');
+    if (!storedJetNames) return JET_NAMES;
+
+    try {
+      const parsed = JSON.parse(storedJetNames);
+      return Array.isArray(parsed) ? parsed : JET_NAMES;
+    } catch {
+      return JET_NAMES;
+    }
+  });
+  const [newJetName, setNewJetName] = useState('');
 
   // State for calendar date picker (default to today, local time)
   const today = new Date().toLocaleDateString('en-CA');
@@ -51,6 +63,30 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
   const [regForm, setRegForm] = useState<Partial<User>>({});
 
   const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
+
+  const addJetName = () => {
+    const normalizedJetName = newJetName.trim();
+
+    if (!normalizedJetName) {
+      alert('Digite um nome de jet para adicionar.');
+      return;
+    }
+
+    const alreadyExists = jetNames.some(
+      jet => jet.toLowerCase() === normalizedJetName.toLowerCase()
+    );
+
+    if (alreadyExists) {
+      alert('Esse nome de jet já existe na lista.');
+      return;
+    }
+
+    const updatedJetNames = [...jetNames, normalizedJetName].sort((a, b) => a.localeCompare(b));
+    setJetNames(updatedJetNames);
+    localStorage.setItem('marina_jet_names', JSON.stringify(updatedJetNames));
+    setRegForm(prev => ({ ...prev, jetName: normalizedJetName }));
+    setNewJetName('');
+  };
 
   const updateStatus = (res: Reservation, nextStatus: JetStatus) => {
     onUpdateReservation({ ...res, status: nextStatus });
@@ -498,10 +534,26 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
                             <label className="block text-xs font-bold text-gray-500 mb-1">Nome do Jet</label>
                             <select name="jetName" className="w-full p-2 border rounded" value={regForm.jetName || ''} onChange={handleRegFormChange}>
                               <option value="">Selecione um jet</option>
-                              {JET_NAMES.map((jet) => (
+                              {jetNames.map((jet) => (
                                 <option key={jet} value={jet}>{jet}</option>
                               ))}
                             </select>
+                            <div className="mt-2 flex gap-2">
+                              <input
+                                type="text"
+                                className="w-full p-2 border rounded"
+                                placeholder="Novo nome do jet"
+                                value={newJetName}
+                                onChange={(e) => setNewJetName(e.target.value)}
+                              />
+                              <button
+                                type="button"
+                                onClick={addJetName}
+                                className="px-3 py-2 bg-blue-600 text-white text-sm font-bold rounded hover:bg-blue-700 transition"
+                              >
+                                Adicionar
+                              </button>
+                            </div>
                           </div>
                         )}
                         <div>
