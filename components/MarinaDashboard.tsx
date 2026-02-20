@@ -1,5 +1,5 @@
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { JetStatus, Reservation, StatusLabels, User } from '../types';
 import { formatCEP, formatPhone, toTitleCase } from '../utils';
 
@@ -30,11 +30,12 @@ interface Props {
   reservations: Reservation[];
   users: User[];
   onUpdateReservation: (res: Reservation) => void;
-  onUpdateUser: (updatedUser: User) => void;
+  onUpdateUser: (updatedUser: User) => Promise<boolean>;
   onDeleteUser: (userId: string) => void;
+  operationsOnly?: boolean;
 }
 
-const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReservation, onUpdateUser, onDeleteUser }) => {
+const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReservation, onUpdateUser, onDeleteUser, operationsOnly = false }) => {
   const [activeTab, setActiveTab] = useState<'OPERATIONS' | 'CLIENTS' | 'FINANCE'>('OPERATIONS');
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editingRegistrationId, setEditingRegistrationId] = useState<string | null>(null);
@@ -42,6 +43,8 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
   const [financeSearch, setFinanceSearch] = useState('');
   const [clientSearch, setClientSearch] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [blockingUserId, setBlockingUserId] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [jetNames, setJetNames] = useState<string[]>(() => {
     const storedJetNames = localStorage.getItem('marina_jet_names');
     if (!storedJetNames) return JET_NAMES;
@@ -54,6 +57,12 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
     }
   });
   const [newJetName, setNewJetName] = useState('');
+
+  useEffect(() => {
+    if (operationsOnly && activeTab !== 'OPERATIONS') {
+      setActiveTab('OPERATIONS');
+    }
+  }, [activeTab, operationsOnly]);
 
   // State for calendar date picker (default to today, local time)
   const today = new Date().toLocaleDateString('en-CA');
@@ -171,8 +180,16 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
     }
   };
 
-  const toggleBlock = (user: User) => {
-    onUpdateUser({ ...user, isBlocked: !user.isBlocked });
+  const toggleBlock = async (user: User) => {
+    if (blockingUserId === user.id) return;
+    setBlockingUserId(user.id);
+    const nextStatus = !user.isBlocked;
+    const success = await onUpdateUser({ ...user, isBlocked: nextStatus });
+    if (success) {
+      setToastMessage(nextStatus ? 'Cliente bloqueado com sucesso.' : 'Cliente liberado com sucesso.');
+      setTimeout(() => setToastMessage(null), 2000);
+    }
+    setBlockingUserId(null);
   };
 
   const resetPassword = (user: User) => {
@@ -266,6 +283,11 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
 
   return (
     <div className="space-y-6 pb-20">
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 rounded-xl bg-gray-900 text-white text-sm font-bold px-4 py-3 shadow-xl">
+          {toastMessage}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <nav className="flex bg-white rounded-xl shadow-sm border p-1 sticky top-4 z-20 overflow-x-auto flex-1">
           <button
@@ -274,18 +296,22 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
           >
             Painel Principal
           </button>
-          <button
-            onClick={() => setActiveTab('CLIENTS')}
-            className={`flex-1 min-w-[120px] py-2 text-sm font-bold rounded-lg transition ${activeTab === 'CLIENTS' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
-          >
-            Clientes
-          </button>
-          <button
-            onClick={() => setActiveTab('FINANCE')}
-            className={`flex-1 min-w-[120px] py-2 text-sm font-bold rounded-lg transition ${activeTab === 'FINANCE' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
-          >
-            Financeiro
-          </button>
+          {!operationsOnly && (
+            <button
+              onClick={() => setActiveTab('CLIENTS')}
+              className={`flex-1 min-w-[120px] py-2 text-sm font-bold rounded-lg transition ${activeTab === 'CLIENTS' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
+            >
+              Clientes
+            </button>
+          )}
+          {!operationsOnly && (
+            <button
+              onClick={() => setActiveTab('FINANCE')}
+              className={`flex-1 min-w-[120px] py-2 text-sm font-bold rounded-lg transition ${activeTab === 'FINANCE' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
+            >
+              Financeiro
+            </button>
+          )}
         </nav>
         <button
           onClick={() => window.location.reload()}
@@ -761,9 +787,10 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
                           )}
                           <button
                             onClick={() => toggleBlock(u)}
-                            className={`w-28 py-1.5 rounded-full text-xs font-bold transition shadow-sm active:scale-95 ${u.isBlocked ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}`}
+                            disabled={blockingUserId === u.id}
+                            className={`w-28 py-1.5 rounded-full text-xs font-bold transition shadow-sm active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed ${u.isBlocked ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}`}
                           >
-                            {u.isBlocked ? 'BLOQUEADO' : 'LIBERADO'}
+                            {blockingUserId === u.id ? 'SALVANDO...' : (u.isBlocked ? 'BLOQUEADO' : 'LIBERADO')}
                           </button>
                         </div>
                       </td>

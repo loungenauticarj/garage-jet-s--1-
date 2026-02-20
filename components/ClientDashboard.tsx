@@ -16,15 +16,12 @@ interface Props {
   reservations: Reservation[];
   allReservations: Reservation[];
   onAddReservation: (res: Reservation) => void;
-  onUpdateReservation: (res: Reservation) => void;
   onDeleteReservation: (reservationId: string) => void;
 }
 
-const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations, onAddReservation, onUpdateReservation, onDeleteReservation }) => {
+const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations, onAddReservation, onDeleteReservation }) => {
   const [showResForm, setShowResForm] = useState(false);
   const [activeTab, setActiveTab] = useState<'STATUS' | 'HISTORY' | 'CALENDAR'>('STATUS');
-  const [editingResId, setEditingResId] = useState<string | null>(null);
-  const [editRes, setEditRes] = useState({ date: '', time: '', route: '' });
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
@@ -168,37 +165,6 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
     setNewRes({ ...newRes, date: value });
   };
 
-  const startEditReservation = (res: Reservation) => {
-    setEditingResId(res.id);
-    setEditRes({ date: res.date, time: res.time, route: res.route });
-  };
-
-  const cancelEditReservation = () => {
-    setEditingResId(null);
-    setEditRes({ date: '', time: '', route: '' });
-  };
-
-  const saveEditReservation = (res: Reservation) => {
-    const conflict = findJetDateConflict(editRes.date, res.id);
-
-    if (conflict) {
-      if (conflict.userId !== user.id) {
-        alert(`RESERVADO PARA OUTRO CLIENTE: ${conflict.userName}`);
-      } else {
-        alert('Você já possui um agendamento para este dia com este jet.');
-      }
-      return;
-    }
-
-    onUpdateReservation({
-      ...res,
-      date: editRes.date,
-      time: editRes.time,
-      route: editRes.route,
-    });
-    cancelEditReservation();
-  };
-
   return (
     <div className="space-y-4 pb-20">
       {/* Perfil do Cliente */}
@@ -270,12 +236,6 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                     <p className="text-gray-500"><strong>Destino:</strong> {currentRes.route}</p>
                     <div className="mt-2 flex gap-2">
                       <button
-                        onClick={() => startEditReservation(currentRes)}
-                        className="text-[10px] font-bold px-2 py-1 rounded bg-blue-600 text-white shadow-sm"
-                      >
-                        Editar
-                      </button>
-                      <button
                         onClick={() => onDeleteReservation(currentRes.id)}
                         className="text-[10px] font-bold px-2 py-1 rounded bg-red-600 text-white shadow-sm"
                       >
@@ -284,54 +244,6 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                     </div>
                   </div>
                 </div>
-
-                {editingResId === currentRes.id && (
-                  <div className="p-3 border border-gray-100 rounded-xl bg-white space-y-2">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Data</label>
-                        <input
-                          type="date"
-                          className="w-full p-2 border bg-gray-50 rounded-md text-xs"
-                          value={editRes.date}
-                          onChange={(e) => setEditRes({ ...editRes, date: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Hora</label>
-                        <input
-                          type="time"
-                          className="w-full p-2 border bg-gray-50 rounded-md text-xs"
-                          value={editRes.time}
-                          onChange={(e) => setEditRes({ ...editRes, time: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Roteiro</label>
-                        <input
-                          type="text"
-                          className="w-full p-2 border bg-gray-50 rounded-md text-xs"
-                          value={editRes.route}
-                          onChange={(e) => setEditRes({ ...editRes, route: e.target.value })}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex gap-2 justify-end">
-                      <button
-                        onClick={cancelEditReservation}
-                        className="text-xs font-bold px-3 py-1.5 rounded bg-gray-100 text-gray-700"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        onClick={() => saveEditReservation(currentRes)}
-                        className="text-xs font-bold px-3 py-1.5 rounded bg-blue-600 text-white"
-                      >
-                        Salvar
-                      </button>
-                    </div>
-                  </div>
-                )}
 
                 {currentRes.photos.length > 0 && (
                   <div className="mt-4">

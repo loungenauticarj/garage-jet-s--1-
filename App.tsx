@@ -44,7 +44,7 @@ const App: React.FC = () => {
       const user = authService.getCurrentUser();
       if (user) {
         setCurrentUser(user);
-        setView(user.role === 'MARINA' ? 'MARINA' : 'CLIENT');
+        setView(user.role === 'MARINA' || user.role === 'OPERATIONAL' ? 'MARINA' : 'CLIENT');
         await loadData(user);
       }
       setLoading(false);
@@ -66,7 +66,7 @@ const App: React.FC = () => {
 
   // Load data based on user role
   const loadData = async (user: User) => {
-    if (user.role === 'MARINA') {
+    if (user.role === 'MARINA' || user.role === 'OPERATIONAL') {
       // Load all users and reservations for MARINA
       const { users: allUsers } = await usersService.getAllUsers();
       const { reservations: allReservations } = await reservationsService.getAllReservations();
@@ -79,7 +79,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleLogin = async (email: string, password: string, role: 'CLIENT' | 'MARINA') => {
+  const handleLogin = async (email: string, password: string, role: 'CLIENT' | 'MARINA' | 'OPERATIONAL') => {
     const { user, error } = await authService.login(email, password, role);
 
     if (error) {
@@ -90,7 +90,7 @@ const App: React.FC = () => {
     if (user) {
       setCurrentUser(user);
       authService.saveCurrentUser(user);
-      setView(role === 'MARINA' ? 'MARINA' : 'CLIENT');
+      setView(role === 'MARINA' || role === 'OPERATIONAL' ? 'MARINA' : 'CLIENT');
       await loadData(user);
     }
   };
@@ -141,7 +141,7 @@ const App: React.FC = () => {
     setReservations,
   });
 
-  const { updateUser } = useUserUpdate({ setUsers });
+  const { updateUser } = useUserUpdate({ users, setUsers });
 
   const { deleteUser } = useUserDeletion({
     users,
@@ -202,7 +202,6 @@ const App: React.FC = () => {
             reservations={reservations.filter(r => r.userId === currentUser.id)}
             allReservations={reservations}
             onAddReservation={addReservation}
-            onUpdateReservation={updateReservation}
             onDeleteReservation={deleteReservation}
           />
         )}
@@ -213,6 +212,7 @@ const App: React.FC = () => {
             onUpdateReservation={updateReservation}
             onUpdateUser={updateUser}
             onDeleteUser={deleteUser}
+            operationsOnly={currentUser?.role === 'OPERATIONAL'}
           />
         )}
       </main>

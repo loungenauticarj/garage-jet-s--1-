@@ -37,7 +37,7 @@ export interface User {
   monthlyDueDate: number;
   monthlyValue: number;
   isBlocked: boolean;
-  role: 'CLIENT' | 'MARINA';
+  role: 'CLIENT' | 'MARINA' | 'OPERATIONAL';
   // New Jet-Ski details
   jetSkiManufacturer: string;
   jetSkiModel: string;

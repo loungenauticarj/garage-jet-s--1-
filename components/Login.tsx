@@ -12,7 +12,7 @@ const JetSkiLogo = ({ className = "w-24 h-24" }: { className?: string }) => (
 );
 
 interface Props {
-  onLogin: (email: string, password: string, role: 'CLIENT' | 'MARINA') => void;
+  onLogin: (email: string, password: string, role: 'CLIENT' | 'MARINA' | 'OPERATIONAL') => void;
   onGoToRegister: () => void;
 }
 
@@ -22,7 +22,9 @@ const Login: React.FC<Props> = ({ onLogin, onGoToRegister }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (email === 'admin@marina.com') {
+    if (email === 'operacional@marina.com') {
+      onLogin(email, password, 'OPERATIONAL');
+    } else if (email === 'admin@marina.com' || email === 'admin@garagejets.com') {
       onLogin(email, password, 'MARINA');
     } else {
       onLogin(email, password, 'CLIENT');
