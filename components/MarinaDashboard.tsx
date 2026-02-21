@@ -46,6 +46,9 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
   const [blockingUserId, setBlockingUserId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [checkInPhotos, setCheckInPhotos] = useState<Record<string, string[]>>({});
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
+  const [selectedPhotos, setSelectedPhotos] = useState<string[]>([]);
+  const [photoIndex, setPhotoIndex] = useState(0);
   const [jetNames, setJetNames] = useState<string[]>(() => {
     const storedJetNames = localStorage.getItem('marina_jet_names');
     if (!storedJetNames) return JET_NAMES;
@@ -64,6 +67,26 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
       setActiveTab('OPERATIONS');
     }
   }, [activeTab, operationsOnly]);
+
+  // Navegação por teclado no modal de fotos
+  useEffect(() => {
+    if (!photoModalOpen || selectedPhotos.length === 0) return;
+
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        setPhotoIndex(Math.max(0, photoIndex - 1));
+      } else if (e.key === 'ArrowRight') {
+        setPhotoIndex(Math.min(selectedPhotos.length - 1, photoIndex + 1));
+      } else if (e.key === 'Escape') {
+        setPhotoModalOpen(false);
+        setSelectedPhotos([]);
+        setPhotoIndex(0);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [photoModalOpen, selectedPhotos.length, photoIndex]);
 
   // State for calendar date picker (default to today, local time)
   const today = new Date().toLocaleDateString('en-CA');
@@ -869,17 +892,38 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
                                         <p className="font-semibold text-gray-700 mb-1">📸 Fotos ({res.photos.length})</p>
                                         <div className="grid grid-cols-4 gap-1">
                                           {res.photos.slice(0, 4).map((photo, idx) => (
-                                            <img
+                                            <button
                                               key={idx}
-                                              src={photo}
-                                              alt={`Foto ${idx + 1}`}
-                                              className="w-full h-12 object-cover rounded border border-gray-200 cursor-pointer hover:scale-105 transition"
-                                              onClick={() => window.open(photo, '_blank')}
-                                            />
+                                              onClick={() => {
+                                                setSelectedPhotos(res.photos);
+                                                setPhotoIndex(idx);
+                                                setPhotoModalOpen(true);
+                                              }}
+                                              className="w-full h-12 rounded border border-gray-200 cursor-pointer hover:scale-105 transition overflow-hidden group relative"
+                                              title="Clique para ampliar"
+                                            >
+                                              <img
+                                                src={photo}
+                                                alt={`Foto ${idx + 1}`}
+                                                className="w-full h-full object-cover group-hover:opacity-75 transition"
+                                              />
+                                              <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition">
+                                                <span className="text-white text-lg opacity-0 group-hover:opacity-100 transition">🔍</span>
+                                              </div>
+                                            </button>
                                           ))}
                                         </div>
                                         {res.photos.length > 4 && (
-                                          <p className="text-xs text-gray-500 mt-1">+ {res.photos.length - 4} mais</p>
+                                          <button
+                                            onClick={() => {
+                                              setSelectedPhotos(res.photos);
+                                              setPhotoIndex(4);
+                                              setPhotoModalOpen(true);
+                                            }}
+                                            className="text-xs text-blue-600 hover:text-blue-700 font-bold mt-1 cursor-pointer transition"
+                                          >
+                                            + Ver todas as {res.photos.length} fotos
+                                          </button>
                                         )}
                                       </div>
                                     )}
@@ -1017,6 +1061,87 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Visualização de Fotos */}
+      {photoModalOpen && selectedPhotos.length > 0 && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="relative max-w-4xl w-full">
+            {/* Fechar */}
+            <button
+              onClick={() => {
+                setPhotoModalOpen(false);
+                setSelectedPhotos([]);
+                setPhotoIndex(0);
+              }}
+              className="absolute -top-10 right-0 text-white hover:text-gray-300 text-3xl transition z-10"
+              title="Fechar"
+            >
+              ✕
+            </button>
+
+            {/* Imagem Principal */}
+            <div className="bg-black rounded-lg overflow-hidden">
+              <img
+                src={selectedPhotos[photoIndex]}
+                alt={`Foto ${photoIndex + 1}`}
+                className="w-full max-h-[70vh] object-contain"
+              />
+            </div>
+
+            {/* Informações e Controles */}
+            <div className="bg-gray-900 text-white p-4 rounded-b-lg flex items-center justify-between">
+              <p className="text-sm font-semibold">
+                Foto {photoIndex + 1} de {selectedPhotos.length}
+              </p>
+
+              {/* Navegação */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPhotoIndex(Math.max(0, photoIndex - 1))}
+                  disabled={photoIndex === 0}
+                  className="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-sm font-bold transition"
+                >
+                  ← Anterior
+                </button>
+
+                {/* Miniaturas */}
+                <div className="flex gap-1 overflow-x-auto max-w-xs">
+                  {selectedPhotos.map((photo, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setPhotoIndex(idx)}
+                      className={`flex-shrink-0 w-10 h-10 rounded border-2 transition ${
+                        idx === photoIndex
+                          ? 'border-blue-500 scale-105'
+                          : 'border-gray-600 hover:border-gray-500'
+                      }`}
+                    >
+                      <img
+                        src={photo}
+                        alt={`Miniatura ${idx + 1}`}
+                        className="w-full h-full object-cover rounded"
+                      />
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => setPhotoIndex(Math.min(selectedPhotos.length - 1, photoIndex + 1))}
+                  disabled={photoIndex === selectedPhotos.length - 1}
+                  className="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-sm font-bold transition"
+                >
+                  Próxima →
+                </button>
+              </div>
+            </div>
+
+            {/* Dicas de Teclado */}
+            <p className="text-center text-gray-400 text-xs mt-2">
+              Use as setas do teclado ou clique nos botões para navegar
+            </p>
           </div>
         </div>
       )}
