@@ -760,55 +760,9 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
                           <div className="flex flex-wrap items-center gap-2">
                             <h4 className="font-bold text-lg text-gray-900">{u.name}</h4>
                             {u.ownerType === 'COTISTA' && u.jetName && (
-                              <div className="flex items-center gap-1">
-                                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
-                                  {editingJetNameId === u.id ? (
-                                    <input
-                                      type="text"
-                                      className="px-2 py-1 border rounded text-xs"
-                                      value={tempJetName}
-                                      onChange={(e) => setTempJetName(e.target.value)}
-                                      autoFocus
-                                    />
-                                  ) : (
-                                    <>{u.jetName} • Cotista</>
-                                  )}
-                                </span>
-                                {editingJetNameId === u.id ? (
-                                  <div className="flex gap-1">
-                                    <button
-                                      onClick={() => saveJetName(u)}
-                                      className="p-1 bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700 transition active:scale-95"
-                                      title="Salvar"
-                                    >
-                                      ✓
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setEditingJetNameId(null);
-                                        setTempJetName('');
-                                      }}
-                                      className="p-1 bg-red-600 text-white rounded text-xs font-bold hover:bg-red-700 transition active:scale-95"
-                                      title="Cancelar"
-                                    >
-                                      ✕
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <button
-                                    onClick={() => {
-                                      setEditingJetNameId(u.id);
-                                      setTempJetName(u.jetName || '');
-                                    }}
-                                    className="p-1 bg-blue-600 text-white rounded-lg border border-blue-200 hover:bg-blue-700 transition shadow-sm active:scale-95"
-                                    title="Editar nome do jet"
-                                  >
-                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                    </svg>
-                                  </button>
-                                )}
-                              </div>
+                              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                                {u.jetName} • Cotista
+                              </span>
                             )}
                           </div>
                           <span className="text-xs font-mono bg-blue-50 text-blue-700 px-2 py-1 rounded">Cod: {u.registrationCode}</span>
@@ -852,8 +806,56 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
 
                         {/* Jet-Ski Data */}
                         <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
-                          <p className="text-xs font-black text-blue-800 uppercase tracking-widest mb-2">Jet-Ski Associado</p>
-                          <p className="text-sm text-gray-700 mb-2"><strong>Nome:</strong> {u.jetName || '---'}</p>
+                          <p className="text-xs font-black text-blue-800 uppercase tracking-widest mb-2">Dados da Embarcação</p>
+                          <div className="mb-2 flex items-center gap-2">
+                            {editingJetNameId === u.id ? (
+                              <>
+                                <div className="flex gap-2 flex-1">
+                                  <input
+                                    type="text"
+                                    className="flex-1 p-2 border rounded text-sm"
+                                    placeholder="Nome do jet"
+                                    value={tempJetName}
+                                    onChange={(e) => setTempJetName(e.target.value)}
+                                    autoFocus
+                                  />
+                                  <button
+                                    onClick={() => saveJetName(u)}
+                                    className="p-2 bg-green-600 text-white rounded text-sm font-bold hover:bg-green-700 transition active:scale-95"
+                                    title="Salvar"
+                                  >
+                                    ✓
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setEditingJetNameId(null);
+                                      setTempJetName('');
+                                    }}
+                                    className="p-2 bg-red-600 text-white rounded text-sm font-bold hover:bg-red-700 transition active:scale-95"
+                                    title="Cancelar"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-sm text-gray-700 flex-1"><strong>Nome:</strong> {u.jetName || '---'}</p>
+                                <button
+                                  onClick={() => {
+                                    setEditingJetNameId(u.id);
+                                    setTempJetName(u.jetName || '');
+                                  }}
+                                  className="p-1.5 bg-blue-600 text-white rounded-lg border border-blue-200 hover:bg-blue-700 transition shadow-sm active:scale-95"
+                                  title="Editar nome do jet"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                  </svg>
+                                </button>
+                              </>
+                            )}
+                          </div>
                           <p className="text-sm text-gray-700"><strong>Fab:</strong> {u.jetSkiManufacturer}</p>
                           <p className="text-sm text-gray-700"><strong>Mod:</strong> {u.jetSkiModel} ({u.jetSkiYear})</p>
                           <p className="text-sm text-gray-700"><strong>Proprietário:</strong> {u.ownerType === 'UNICO' ? 'Único' : 'Cotista'}</p>
