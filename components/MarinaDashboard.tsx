@@ -264,6 +264,15 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
     setTimeout(() => setToastMessage(null), 2000);
   };
 
+  const deleteJetName = (user: User) => {
+    const confirmed = window.confirm(`Deseja excluir o nome do jet de ${user.name}?`);
+    if (confirmed) {
+      onUpdateUser({ ...user, jetName: '' });
+      setToastMessage('Nome do jet removido com sucesso.');
+      setTimeout(() => setToastMessage(null), 2000);
+    }
+  };
+
 
   const openWhatsApp = (phone: string) => {
     const cleanPhone = phone.replace(/\D/g, '');
@@ -813,15 +822,16 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
                                   <input
                                     type="text"
                                     className="flex-1 p-2 border rounded text-sm"
-                                    placeholder="Nome do jet"
+                                    placeholder="Nome do jet (ou deixe em branco)"
                                     value={tempJetName}
                                     onChange={(e) => setTempJetName(e.target.value)}
                                     autoFocus
                                   />
                                   <button
                                     onClick={() => saveJetName(u)}
-                                    className="p-2 bg-green-600 text-white rounded text-sm font-bold hover:bg-green-700 transition active:scale-95"
-                                    title="Salvar"
+                                    disabled={!tempJetName.trim()}
+                                    className="p-2 bg-green-600 text-white rounded text-sm font-bold hover:bg-green-700 transition active:scale-95 disabled:bg-gray-400"
+                                    title="Salvar alterações"
                                   >
                                     ✓
                                   </button>
@@ -831,7 +841,7 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
                                       setTempJetName('');
                                     }}
                                     className="p-2 bg-red-600 text-white rounded text-sm font-bold hover:bg-red-700 transition active:scale-95"
-                                    title="Cancelar"
+                                    title="Cancelar edição"
                                   >
                                     ✕
                                   </button>
@@ -840,18 +850,31 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
                             ) : (
                               <>
                                 <p className="text-sm text-gray-700 flex-1"><strong>Nome:</strong> {u.jetName || '---'}</p>
-                                <button
-                                  onClick={() => {
-                                    setEditingJetNameId(u.id);
-                                    setTempJetName(u.jetName || '');
-                                  }}
-                                  className="p-1.5 bg-blue-600 text-white rounded-lg border border-blue-200 hover:bg-blue-700 transition shadow-sm active:scale-95"
-                                  title="Editar nome do jet"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                  </svg>
-                                </button>
+                                <div className="flex gap-1">
+                                  <button
+                                    onClick={() => {
+                                      setEditingJetNameId(u.id);
+                                      setTempJetName(u.jetName || '');
+                                    }}
+                                    className="p-1.5 bg-blue-600 text-white rounded-lg border border-blue-200 hover:bg-blue-700 transition shadow-sm active:scale-95"
+                                    title="Editar ou adicionar informação ao nome"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                    </svg>
+                                  </button>
+                                  {u.jetName && (
+                                    <button
+                                      onClick={() => deleteJetName(u)}
+                                      className="p-1.5 bg-red-600 text-white rounded-lg border border-red-200 hover:bg-red-700 transition shadow-sm active:scale-95"
+                                      title="Excluir nome do jet"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                      </svg>
+                                    </button>
+                                  )}
+                                </div>
                               </>
                             )}
                           </div>
