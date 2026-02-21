@@ -667,26 +667,30 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
                           <p className="text-sm font-bold text-blue-900 mb-3">📋 Dados da Embarcação</p>
                         </div>
 
-                        <div>
-                          <label className="block text-xs font-bold text-gray-500 mb-1">Marca</label>
-                          <select name="jetSkiManufacturer" className="w-full p-2 border rounded bg-white" value={regForm.jetSkiManufacturer} onChange={handleRegFormChange}>
-                            <option value="">Selecione...</option>
-                            <option value="Seadoo">Seadoo</option>
-                            <option value="Yamaha">Yamaha</option>
-                            <option value="Kawasaki">Kawasaki</option>
-                            <option value="Outros">Outros</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-500 mb-1">Modelo Jet</label>
-                          <input name="jetSkiModel" className="w-full p-2 border rounded" value={regForm.jetSkiModel} onChange={handleRegFormChange} />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-500 mb-1">Ano Jet</label>
-                          <input name="jetSkiYear" className="w-full p-2 border rounded" value={regForm.jetSkiYear} onChange={handleRegFormChange} />
-                        </div>
+                        {regForm.ownerType === 'UNICO' && (
+                          <>
+                            <div>
+                              <label className="block text-xs font-bold text-gray-500 mb-1">Marca</label>
+                              <select name="jetSkiManufacturer" className="w-full p-2 border rounded bg-white" value={regForm.jetSkiManufacturer} onChange={handleRegFormChange}>
+                                <option value="">Selecione...</option>
+                                <option value="Seadoo">Seadoo</option>
+                                <option value="Yamaha">Yamaha</option>
+                                <option value="Kawasaki">Kawasaki</option>
+                                <option value="Outros">Outros</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-gray-500 mb-1">Modelo Jet</label>
+                              <input name="jetSkiModel" className="w-full p-2 border rounded" value={regForm.jetSkiModel} onChange={handleRegFormChange} />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-gray-500 mb-1">Ano Jet</label>
+                              <input name="jetSkiYear" className="w-full p-2 border rounded" value={regForm.jetSkiYear} onChange={handleRegFormChange} />
+                            </div>
+                          </>
+                        )}
                         {regForm.ownerType !== 'UNICO' && (
-                          <div>
+                          <div className="md:col-span-2">
                             <label className="block text-xs font-bold text-gray-500 mb-1">Nome do Jet</label>
                             <select name="jetName" className="w-full p-2 border rounded" value={regForm.jetName || ''} onChange={handleRegFormChange}>
                               <option value="">Selecione um jet</option>
@@ -813,12 +817,21 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
                         {/* Jet-Ski Data */}
                         <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
                           <p className="text-xs font-black text-blue-800 uppercase tracking-widest mb-2">Dados da Embarcação</p>
-                          <div className="mb-2">
-                            <p className="text-sm text-gray-700"><strong>Nome:</strong> {u.jetName || '---'}</p>
-                          </div>
-                          <p className="text-sm text-gray-700"><strong>Fab:</strong> {u.jetSkiManufacturer}</p>
-                          <p className="text-sm text-gray-700"><strong>Mod:</strong> {u.jetSkiModel} ({u.jetSkiYear})</p>
-                          <p className="text-sm text-gray-700"><strong>Proprietário:</strong> {u.ownerType === 'UNICO' ? 'Único' : 'Cotista'}</p>
+                          {u.ownerType === 'COTISTA' ? (
+                            <>
+                              <p className="text-sm text-gray-700"><strong>Nome do Jet:</strong> {u.jetName || '---'}</p>
+                              <p className="text-sm text-gray-700"><strong>Proprietário:</strong> Cotista</p>
+                            </>
+                          ) : (
+                            <>
+                              <div className="mb-2">
+                                <p className="text-sm text-gray-700"><strong>Nome:</strong> {u.jetName || '---'}</p>
+                              </div>
+                              <p className="text-sm text-gray-700"><strong>Fab:</strong> {u.jetSkiManufacturer}</p>
+                              <p className="text-sm text-gray-700"><strong>Mod:</strong> {u.jetSkiModel} ({u.jetSkiYear})</p>
+                              <p className="text-sm text-gray-700"><strong>Proprietário:</strong> Único</p>
+                            </>
+                          )}
                         </div>
                       </div>
 
