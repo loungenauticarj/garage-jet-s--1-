@@ -2,46 +2,77 @@
 
 ## ❌ Erro Atual
 ```
-Erro ao deletar usuário: Usuário não foi removido do banco de dados. Verifique as permissões RLS
+❌ ERRO RLS: Usuário não foi removido!
+📋 Execute o arquivo FIX_RLS_POLICIES.sql no Supabase SQL Editor.
 ```
 
 ## 🔍 Causa do Problema
-O Supabase está bloqueando a operação DELETE devido às **políticas de Row Level Security (RLS)** que não permitem deleção de registros com a chave pública (ANON_KEY).
+O Supabase está **bloqueando a operação DELETE** devido às **políticas de Row Level Security (RLS)** que não permitem deleção de registros com a chave pública (ANON_KEY).
 
-## ✅ Solução (Passo a Passo)
+---
 
-### 1️⃣ Acesse o Supabase
-1. Vá para: https://app.supabase.com
-2. Faça login na sua conta
-3. Selecione o projeto do Garage Jet's
+## ✅ SOLUÇÃO RÁPIDA (5 MINUTOS)
 
-### 2️⃣ Abra o SQL Editor
-1. No menu lateral esquerdo, clique em **SQL Editor**
-2. Clique em **New Query**
+### 🎯 Passo 1: Abra o Supabase
+```
+🌐 https://app.supabase.com
+```
+1. Faça login na sua conta
+2. Selecione o **projeto do Garage Jet's**
 
-### 3️⃣ Execute o Script
-1. Abra o arquivo `FIX_RLS_POLICIES.sql` que está nesta pasta
-2. Copie TODO o conteúdo do arquivo
-3. Cole no SQL Editor do Supabase
-4. Clique em **Run** (ou pressione Ctrl+Enter)
+---
 
-### 4️⃣ Verifique o Resultado
-Ao final da execução, você verá uma tabela mostrando as políticas criadas:
-- `Allow public to delete users`
-- `Allow public to delete reservations`
-- `Allow public to select users`
-- `Allow public to select reservations`
-- `Allow public to insert users`
-- `Allow public to insert reservations`
-- `Allow public to update users`
-- `Allow public to update reservations`
+### 🎯 Passo 2: Abra o SQL Editor
+No menu lateral esquerdo:
+```
+📊 SQL Editor (ícone de código) → New Query
+```
 
-### 5️⃣ Teste a Aplicação
-1. Volte para a aplicação Garage Jet's
-2. Faça login como MARINA
-3. Vá para a aba **CLIENTES**
-4. Tente deletar um cliente
-5. ✅ Agora deve funcionar sem erros!
+---
+
+### 🎯 Passo 3: Copie o Script
+**COPIE TODO O CONTEÚDO** do arquivo:
+```
+📄 FIX_RLS_POLICIES.sql
+```
+
+Você pode abrir o arquivo no VS Code ou Bloco de Notas e copiar tudo (Ctrl+A, Ctrl+C).
+
+---
+
+### 🎯 Passo 4: Cole e Execute
+1. **Cole** o código no SQL Editor (Ctrl+V)
+2. Clique em **RUN** (botão verde) ou pressione **Ctrl+Enter**
+3. ⏳ Aguarde alguns segundos...
+
+---
+
+### 🎯 Passo 5: Verifique o Sucesso ✅
+Ao final, você verá uma **tabela com as políticas criadas**:
+
+| Tabela        | Política                           | Comando |
+|--------------|-----------------------------------|---------|
+| users        | Allow public to delete users      | DELETE  |
+| users        | Allow public to select users      | SELECT  |
+| users        | Allow public to insert users      | INSERT  |
+| users        | Allow public to update users      | UPDATE  |
+| reservations | Allow public to delete reservations | DELETE |
+| reservations | Allow public to select reservations | SELECT |
+| reservations | Allow public to insert reservations | INSERT |
+| reservations | Allow public to update reservations | UPDATE |
+
+Se você vê essas 8 políticas → **SUCESSO!** ✅
+
+---
+
+### 🎯 Passo 6: Teste a Aplicação
+1. ✅ Volte para a aplicação **Garage Jet's**
+2. ✅ Faça login como **MARINA**
+3. ✅ Vá para a aba **CLIENTES**
+4. ✅ Tente deletar um cliente
+5. ✅ **PRONTO! Agora funciona sem erros!**
+
+---
 
 ## 🔒 Segurança
 

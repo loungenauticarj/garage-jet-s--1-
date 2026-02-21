@@ -1,0 +1,85 @@
+═══════════════════════════════════════════════════════════════
+  🎯 ONDE ENCONTRAR O SQL EDITOR NO SUPABASE - PASSO A PASSO
+═══════════════════════════════════════════════════════════════
+
+📍 PASSO 1: ABRA O SUPABASE
+   → https://app.supabase.com
+   → Faça login
+   → Você verá a lista de projetos
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📍 PASSO 2: CLIQUE NO SEU PROJETO
+   → Clique no card do projeto "Garage Jet's"
+   → Você entrará no Dashboard do projeto
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📍 PASSO 3: MENU LATERAL ESQUERDO
+   Procure no menu lateral ESQUERDO por uma das opções:
+   
+   OPÇÃO A: "SQL Editor" 
+            (ícone que parece um código </>)
+   
+   OPÇÃO B: "Database" ou "Database Editor"
+            → Depois clique em "SQL Editor" no submenu
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📍 PASSO 4: DENTRO DO SQL EDITOR
+   
+   PROCURE POR UM DESSES BOTÕES:
+   
+   ✅ Botão "+ New Query" (canto superior direito)
+   ✅ Botão "+ New" 
+   ✅ Botão "New query"
+   ✅ Área de texto grande em branco (pode digitar direto!)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📍 ALTERNATIVA: SE NÃO ACHAR "NEW QUERY"
+   
+   1. Procure por "Snippets" ou "Templates" no menu
+   
+   2. OU vá no menu "Database" → "Extensions" voltando para
+      "SQL Editor" depois
+   
+   3. OU simplesmente cole o código SQL na ÁREA DE TEXTO
+      que aparecer (geralmente já tem uma área em branco)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📍 ALTERNATIVA 2: EXECUTAR PELO CONSOLE
+   
+   Se ainda não encontrar, tente:
+   
+   1. Menu lateral → "Database"
+   2. Clique em "Tables" ou "Schema"
+   3. No topo da página, procure por "SQL" ou "Query"
+   4. Cole o código lá
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 RESUMO VISUAL DO CAMINHO:
+
+   Supabase Dashboard
+        ↓
+   [Seu Projeto]
+        ↓
+   Menu Esquerdo → "SQL Editor" ou "Database"
+        ↓
+   [Área de texto para SQL aparece]
+        ↓
+   Cole o código do arquivo FIX_RLS_POLICIES.sql
+        ↓
+   Clique em "RUN" (botão verde, geralmente no topo)
+        ↓
+   ✅ PRONTO!
+
+═══════════════════════════════════════════════════════════════
+
+💡 DICA: A interface do Supabase pode variar ligeiramente
+   dependendo da versão. Se você não vê "New Query", 
+   procure por qualquer lugar onde possa ESCREVER SQL!
+
+═══════════════════════════════════════════════════════════════
