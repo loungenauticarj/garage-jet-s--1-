@@ -35,7 +35,7 @@ export const useUserDeletion = ({
     }
 
     const userToDelete = users.find((u) => u.id === userId);
-    console.log('[useUserDeletion] Usuário a deletar:', userToDelete?.name);
+    console.log('[useUserDeletion] Usuário a deletar:', userToDelete?.name, 'ID:', userId);
     
     const { success, error } = await usersService.deleteUser(userId);
     console.log('[useUserDeletion] Resultado da deleção - success:', success, 'error:', error);
@@ -46,16 +46,29 @@ export const useUserDeletion = ({
     }
 
     if (success) {
+      console.log('[useUserDeletion] Limpando dados locais e atualizando estado...');
       clearDeletedUserLocalData(userId, userToDelete?.email);
 
       if (currentUser?.id === userId) {
         onDeletedCurrentUser();
       }
 
-      setUsers((prev) => prev.filter((u) => u.id !== userId));
+      // Remove from local state
+      setUsers((prev) => {
+        const filtered = prev.filter((u) => u.id !== userId);
+        console.log('[useUserDeletion] Usuários após filtro:', filtered.length, 'de', prev.length);
+        return filtered;
+      });
       setReservations((prev) => prev.filter((r) => r.userId !== userId));
+      
+      // Force reload data to ensure consistency
+      if ((window as any).__forceReloadData) {
+        console.log('[useUserDeletion] Forçando recarga de dados do servidor...');
+        setTimeout(() => (window as any).__forceReloadData(), 500);
+      }
+      
       alert('Cliente deletado com sucesso!');
-      console.log('[useUserDeletion] Usuário deletado com sucesso');
+      console.log('[useUserDeletion] Processo de deleção concluído');
     }
   }, [users, currentUser, setUsers, setReservations, onDeletedCurrentUser]);
 

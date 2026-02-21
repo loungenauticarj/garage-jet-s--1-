@@ -162,6 +162,7 @@ export async function deleteUser(userId: string): Promise<{ success: boolean; er
     try {
         console.log('[usersService.deleteUser] Iniciando deleção do usuário:', userId);
         
+        // First, delete reservations
         const { error: reservationsError } = await supabase
             .from('reservations')
             .delete()
@@ -174,17 +175,33 @@ export async function deleteUser(userId: string): Promise<{ success: boolean; er
 
         console.log('[usersService.deleteUser] Reservas deletadas com sucesso');
 
-        const { error } = await supabase
+        // Then delete the user
+        const { error, count } = await supabase
             .from('users')
             .delete()
-            .eq('id', userId);
+            .eq('id', userId)
+            .select('*', { count: 'exact', head: true });
 
         if (error) {
             console.error('[usersService.deleteUser] Erro ao deletar usuário:', error);
             return { success: false, error: `Erro ao remover cliente: ${error.message}` };
         }
 
-        console.log('[usersService.deleteUser] Usuário deletado com sucesso');
+        console.log('[usersService.deleteUser] Deleção executada. Count:', count);
+
+        // Verify deletion by trying to fetch the user
+        const { data: verifyData, error: verifyError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('id', userId)
+            .single();
+
+        if (verifyData) {
+            console.error('[usersService.deleteUser] FALHA: Usuário ainda existe no banco após deleção!');
+            return { success: false, error: 'Usuário não foi removido do banco de dados. Verifique as permissões RLS.' };
+        }
+
+        console.log('[usersService.deleteUser] Verificação concluída: Usuário removido com sucesso');
         return { success: true, error: null };
     } catch (err: any) {
         console.error('[usersService.deleteUser] Erro inesperado:', err);

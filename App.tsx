@@ -69,7 +69,17 @@ const App: React.FC = () => {
       autoRefreshDisabled = true;
       setTimeout(() => {
         autoRefreshDisabled = false;
-      }, 5000);
+      }, 10000); // 10 segundos de pausa para garantir que a deleção seja propagada
+    };
+
+    // Store reference to force reload function
+    (window as any).__forceReloadData = async () => {
+      const user = authService.getCurrentUser();
+      if (user) {
+        console.log('[App] Forçando recarga de dados...');
+        await loadData(user);
+        console.log('[App] Recarga de dados concluída');
+      }
     };
 
     return () => clearInterval(interval);
