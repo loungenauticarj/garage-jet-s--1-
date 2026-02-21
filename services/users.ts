@@ -176,32 +176,66 @@ export async function deleteUser(userId: string): Promise<{ success: boolean; er
         console.log('[usersService.deleteUser] Reservas deletadas com sucesso');
 
         // Then delete the user
-        const { error, count } = await supabase
+        const { error, count, data: deleteData } = await supabase
             .from('users')
             .delete()
             .eq('id', userId)
-            .select('*', { count: 'exact', head: true });
+            .select();
+
+        console.log('[usersService.deleteUser] Resultado do DELETE:', {
+            error,
+            count,
+            deletedRows: deleteData?.length || 0
+        });
 
         if (error) {
             console.error('[usersService.deleteUser] Erro ao deletar usuário:', error);
+            console.error('[usersService.deleteUser] Detalhes do erro:', {
+                message: error.message,
+                details: error.details,
+                hint: error.hint,
+                code: error.code
+            });
+            
+            // Se for erro de permissão/RLS
+            if (error.code === '42501' || error.message.includes('policy')) {
+                return { 
+                    success: false, 
+                    error: 'ERRO DE PERMISSÃO (RLS):\n\n' +
+                           'Execute o arquivo FIX_RLS_POLICIES.sql no Supabase.\n\n' +
+                           'Instruções em COMO_CORRIGIR_DELECAO.md'
+                };
+            }
+            
             return { success: false, error: `Erro ao remover cliente: ${error.message}` };
         }
-
-        console.log('[usersService.deleteUser] Deleção executada. Count:', count);
 
         // Verify deletion by trying to fetch the user
         const { data: verifyData, error: verifyError } = await supabase
             .from('users')
             .select('id')
             .eq('id', userId)
-            .single();
+            .maybeSingle();  // Use maybeSingle para não dar erro se não encontrar
+
+        console.log('[usersService.deleteUser] Verificação pós-deleção:', {
+            usuarioAindaExiste: !!verifyData,
+            erroVerificacao: verifyError?.message
+        });
 
         if (verifyData) {
-            console.error('[usersService.deleteUser] FALHA: Usuário ainda existe no banco após deleção!');
-            return { success: false, error: 'Usuário não foi removido do banco de dados. Verifique as permissões RLS.' };
+            console.error('[usersService.deleteUser] ❌ FALHA: Usuário ainda existe no banco após deleção!');
+            console.error('[usersService.deleteUser] 📋 SOLUÇÃO: Execute o script FIX_RLS_POLICIES.sql no Supabase SQL Editor');
+            console.error('[usersService.deleteUser] 📄 Veja instruções em: COMO_CORRIGIR_DELECAO.md');
+            return { 
+                success: false, 
+                error: '❌ ERRO RLS: Usuário não foi removido!\n\n' +
+                       '📋 Execute o arquivo FIX_RLS_POLICIES.sql\n' +
+                       '   no Supabase SQL Editor.\n\n' +
+                       '📄 Instruções em: COMO_CORRIGIR_DELECAO.md'
+            };
         }
 
-        console.log('[usersService.deleteUser] Verificação concluída: Usuário removido com sucesso');
+        console.log('[usersService.deleteUser] ✅ Verificação concluída: Usuário removido com sucesso');
         return { success: true, error: null };
     } catch (err: any) {
         console.error('[usersService.deleteUser] Erro inesperado:', err);

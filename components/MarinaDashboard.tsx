@@ -100,15 +100,7 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
     setNewJetName('');
   };
 
-  const resetAllJetNames = () => {
-    const confirmed = window.confirm('Tem certeza que deseja excluir TODOS os nomes de jets? Essa ação não pode ser desfeita.');
-    if (confirmed) {
-      setJetNames(JET_NAMES);
-      localStorage.removeItem('marina_jet_names');
-      setNewJetName('');
-      alert('Todos os nomes de jets foram resetados para os padrões.');
-    }
-  };
+
 
   const updateStatus = (res: Reservation, nextStatus: JetStatus) => {
     onUpdateReservation({ ...res, status: nextStatus });
@@ -712,14 +704,6 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
                                 className="px-3 py-2 bg-blue-600 text-white text-sm font-bold rounded hover:bg-blue-700 transition"
                               >
                                 Adicionar
-                              </button>
-                              <button
-                                type="button"
-                                onClick={resetAllJetNames}
-                                className="px-3 py-2 bg-red-600 text-white text-sm font-bold rounded hover:bg-red-700 transition"
-                                title="Excluir todos os nomes e resetar aos padrões"
-                              >
-                                Limpar Todos
                               </button>
                             </div>
                           </div>
