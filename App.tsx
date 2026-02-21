@@ -55,12 +55,22 @@ const App: React.FC = () => {
 
   // Auto-refresh data every 3 seconds
   useEffect(() => {
+    let autoRefreshDisabled = false;
+    
     const interval = setInterval(async () => {
       const user = authService.getCurrentUser();
-      if (user) {
+      if (user && !autoRefreshDisabled) {
         await loadData(user);
       }
     }, 3000);
+
+    // Store reference to disable function in window for use in deleteUser
+    (window as any).__disableAutoRefresh = () => {
+      autoRefreshDisabled = true;
+      setTimeout(() => {
+        autoRefreshDisabled = false;
+      }, 5000);
+    };
 
     return () => clearInterval(interval);
   }, []);

@@ -29,6 +29,11 @@ export const useUserDeletion = ({
       return;
     }
 
+    // Disable auto-refresh during deletion
+    if ((window as any).__disableAutoRefresh) {
+      (window as any).__disableAutoRefresh();
+    }
+
     const userToDelete = users.find((u) => u.id === userId);
     console.log('[useUserDeletion] Usuário a deletar:', userToDelete?.name);
     
@@ -49,6 +54,7 @@ export const useUserDeletion = ({
 
       setUsers((prev) => prev.filter((u) => u.id !== userId));
       setReservations((prev) => prev.filter((r) => r.userId !== userId));
+      alert('Cliente deletado com sucesso!');
       console.log('[useUserDeletion] Usuário deletado com sucesso');
     }
   }, [users, currentUser, setUsers, setReservations, onDeletedCurrentUser]);
