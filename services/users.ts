@@ -160,15 +160,19 @@ export async function updateUser(userId: string, updates: Partial<User>): Promis
 // Delete user
 export async function deleteUser(userId: string): Promise<{ success: boolean; error: string | null }> {
     try {
+        console.log('[usersService.deleteUser] Iniciando deleção do usuário:', userId);
+        
         const { error: reservationsError } = await supabase
             .from('reservations')
             .delete()
             .eq('user_id', userId);
 
         if (reservationsError) {
-            console.error('Error deleting user reservations:', reservationsError);
+            console.error('[usersService.deleteUser] Erro ao deletar reservas:', reservationsError);
             return { success: false, error: `Erro ao remover reservas do cliente: ${reservationsError.message}` };
         }
+
+        console.log('[usersService.deleteUser] Reservas deletadas com sucesso');
 
         const { error } = await supabase
             .from('users')
@@ -176,13 +180,14 @@ export async function deleteUser(userId: string): Promise<{ success: boolean; er
             .eq('id', userId);
 
         if (error) {
-            console.error('Error deleting user:', error);
+            console.error('[usersService.deleteUser] Erro ao deletar usuário:', error);
             return { success: false, error: `Erro ao remover cliente: ${error.message}` };
         }
 
+        console.log('[usersService.deleteUser] Usuário deletado com sucesso');
         return { success: true, error: null };
     } catch (err: any) {
-        console.error('Unexpected error deleting user:', err);
+        console.error('[usersService.deleteUser] Erro inesperado:', err);
         return { success: false, error: err.message };
     }
 }

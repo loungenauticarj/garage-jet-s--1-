@@ -39,12 +39,15 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
   const [activeTab, setActiveTab] = useState<'OPERATIONS' | 'CLIENTS' | 'FINANCE'>('OPERATIONS');
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editingRegistrationId, setEditingRegistrationId] = useState<string | null>(null);
+  const [editingJetNameId, setEditingJetNameId] = useState<string | null>(null);
+  const [tempJetName, setTempJetName] = useState('');
   const [financeForm, setFinanceForm] = useState({ dueDate: 10, value: 0 });
   const [financeSearch, setFinanceSearch] = useState('');
   const [clientSearch, setClientSearch] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
   const [blockingUserId, setBlockingUserId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [checkInPhotos, setCheckInPhotos] = useState<Record<string, string[]>>({});
   const [jetNames, setJetNames] = useState<string[]>(() => {
     const storedJetNames = localStorage.getItem('marina_jet_names');
     if (!storedJetNames) return JET_NAMES;
@@ -72,6 +75,8 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
   const [regForm, setRegForm] = useState<Partial<User>>({});
 
   const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
+  const cameraInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
+  const galleryInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
   const addJetName = () => {
     const normalizedJetName = newJetName.trim();
@@ -101,11 +106,21 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
     onUpdateReservation({ ...res, status: nextStatus });
   };
 
-  const handlePhotoCheckin = (e: React.ChangeEvent<HTMLInputElement>, res: Reservation) => {
+  const handlePhotoCheckin = (e: React.ChangeEvent<HTMLInputElement>, resId: string) => {
     const files = e.target.files;
     if (!files) return;
 
-    const readers = Array.from(files as FileList).slice(0, 8).map((file: File) => {
+    const currentPhotos = checkInPhotos[resId] || [];
+    const remainingSlots = 10 - currentPhotos.length;
+    
+    if (remainingSlots <= 0) {
+      alert('Você já atingiu o limite de 10 fotos para este check-in!');
+      return;
+    }
+
+    const filesToProcess = Array.from(files as FileList).slice(0, remainingSlots);
+
+    const readers = filesToProcess.map((file: File) => {
       return new Promise<string>((resolve) => {
         const reader = new FileReader();
         reader.onload = (ev) => resolve(ev.target?.result as string);
@@ -114,13 +129,44 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
     });
 
     Promise.all(readers).then(photoUrls => {
-      onUpdateReservation({
-        ...res,
-        photos: photoUrls,
-        status: JetStatus.CHECKED_IN
-      });
-      alert('Check-in finalizado e fotos enviadas ao cliente!');
+      const updatedPhotos = [...currentPhotos, ...photoUrls];
+      setCheckInPhotos(prev => ({
+        ...prev,
+        [resId]: updatedPhotos
+      }));
+
+      // Reset input
+      e.target.value = '';
     });
+  };
+
+  const removePhoto = (resId: string, index: number) => {
+    setCheckInPhotos(prev => ({
+      ...prev,
+      [resId]: prev[resId].filter((_, i) => i !== index)
+    }));
+  };
+
+  const finishCheckin = (res: Reservation) => {
+    const photos = checkInPhotos[res.id] || [];
+    
+    if (photos.length === 0) {
+      alert('Por favor, adicione pelo menos uma foto para o check-in!');
+      return;
+    }
+
+    onUpdateReservation({
+      ...res,
+      photos: photos,
+      status: JetStatus.CHECKED_IN
+    });
+
+    setCheckInPhotos(prev => ({
+      ...prev,
+      [res.id]: []
+    }));
+
+    alert('Check-in finalizado e fotos enviadas ao cliente!');
   };
 
   const startEditingFinance = (user: User) => {
@@ -205,6 +251,19 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
 
       alert(`Senha de ${user.name} resetada para "${defaultPassword}" com sucesso!`);
     }
+  };
+
+  const saveJetName = (user: User) => {
+    if (!tempJetName.trim()) {
+      alert('Nome do jet não pode ser vazio!');
+      return;
+    }
+
+    onUpdateUser({ ...user, jetName: tempJetName.trim() });
+    setEditingJetNameId(null);
+    setTempJetName('');
+    setToastMessage(`Nome do jet atualizado para "${tempJetName.trim()}" com sucesso.`);
+    setTimeout(() => setToastMessage(null), 2000);
   };
 
   const openWhatsApp = (phone: string) => {
@@ -444,40 +503,113 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
               {reservations
                 .filter(r => r.status === JetStatus.RETURNED && r.date === selectedDate)
                 .sort(sortByName)
-                .map(res => (
-                  <div key={res.id} className="bg-white p-5 rounded-2xl shadow-lg border-2 border-green-500 flex flex-col items-center gap-4">
-                    <div className="text-center">
-                      <div className="flex flex-wrap items-center justify-center gap-2">
-                        {renderReservationLine(res)}
+                .map(res => {
+                  const photos = checkInPhotos[res.id] || [];
+                  const photosCount = photos.length;
+                  const canAddMore = photosCount < 10;
+
+                  return (
+                    <div key={res.id} className="bg-white p-5 rounded-2xl shadow-lg border-2 border-green-500 flex flex-col gap-4">
+                      <div className="text-center">
+                        <div className="flex flex-wrap items-center justify-center gap-2">
+                          {renderReservationLine(res)}
+                        </div>
+                        <p className="text-sm text-gray-500 mb-2">Aguardando finalização do check-in</p>
                       </div>
-                      <p className="text-sm text-gray-500 mb-2">Aguardando finalização do check-in</p>
-                    </div>
 
-                    <div className="w-full flex flex-col gap-3">
-                      <button
-                        onClick={() => fileInputRefs.current[res.id]?.click()}
-                        className="w-full bg-green-600 text-white font-black py-4 rounded-xl shadow-lg hover:bg-green-700 transition flex items-center justify-center gap-2 active:scale-95"
-                      >
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                          <circle cx="12" cy="13" r="3" strokeWidth="2" />
-                        </svg>
-                        Na Vaga
-                      </button>
-                      <p className="text-center text-xs text-gray-500">(Acionar câmera para colocar até 8 fotos)</p>
+                      {/* Photo Preview Grid */}
+                      {photosCount > 0 && (
+                        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
+                          {photos.map((photo, idx) => (
+                            <div key={idx} className="relative group">
+                              <img
+                                src={photo}
+                                alt={`Foto ${idx + 1}`}
+                                className="w-full h-20 object-cover rounded-lg shadow-sm border border-gray-200"
+                              />
+                              <button
+                                onClick={() => removePhoto(res.id, idx)}
+                                className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-xs font-bold"
+                                title="Remover foto"
+                              >
+                                ✕
+                              </button>
+                              <span className="absolute bottom-1 right-1 bg-black/60 text-white text-xs rounded px-2 py-0.5">
+                                {idx + 1}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
+                      {/* Photo Counter */}
+                      <p className="text-center text-sm font-semibold text-gray-700">
+                        {photosCount}/10 fotos {photosCount === 10 ? '✓ Completo' : canAddMore ? 'Adicione mais' : ''}
+                      </p>
+
+                      {/* Camera & Gallery Buttons */}
+                      <div className="w-full flex gap-2">
+                        <button
+                          onClick={() => cameraInputRefs.current[res.id]?.click()}
+                          disabled={!canAddMore}
+                          className={`flex-1 ${canAddMore ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400'} text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2 active:scale-95 disabled:cursor-not-allowed`}
+                          title="Tirar foto com a câmera"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                            <circle cx="12" cy="13" r="3" strokeWidth="2" />
+                          </svg>
+                          Câmera
+                        </button>
+
+                        <button
+                          onClick={() => galleryInputRefs.current[res.id]?.click()}
+                          disabled={!canAddMore}
+                          className={`flex-1 ${canAddMore ? 'bg-purple-600 hover:bg-purple-700' : 'bg-gray-400'} text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2 active:scale-95 disabled:cursor-not-allowed`}
+                          title="Escolher da galeria"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          Galeria
+                        </button>
+                      </div>
+
+                      {/* Finish Button */}
+                      {photosCount > 0 && (
+                        <button
+                          onClick={() => finishCheckin(res)}
+                          className="w-full bg-green-600 text-white font-black py-4 rounded-xl shadow-lg hover:bg-green-700 transition flex items-center justify-center gap-2 active:scale-95"
+                        >
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                          </svg>
+                          Finalizar Check-in ({photosCount} fotos)
+                        </button>
+                      )}
+
+                      {/* Hidden File Inputs */}
                       <input
-                        ref={el => { fileInputRefs.current[res.id] = el; }}
+                        ref={el => { cameraInputRefs.current[res.id] = el; }}
                         type="file"
                         multiple
                         accept="image/*"
                         capture="environment"
                         className="hidden"
-                        onChange={(e) => handlePhotoCheckin(e, res)}
+                        onChange={(e) => handlePhotoCheckin(e, res.id)}
+                      />
+
+                      <input
+                        ref={el => { galleryInputRefs.current[res.id] = el; }}
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handlePhotoCheckin(e, res.id)}
                       />
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               {reservations.filter(r => r.status === JetStatus.RETURNED && r.date === selectedDate).length === 0 && (
                 <p className="text-xs text-gray-400 italic px-2">Vazio.</p>
               )}
@@ -675,7 +807,55 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
                         {/* Jet-Ski Data */}
                         <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
                           <p className="text-xs font-black text-blue-800 uppercase tracking-widest mb-2">Jet-Ski Associado</p>
-                          <p className="text-sm text-gray-700"><strong>Nome:</strong> {u.jetName || '---'}</p>
+                          <div className="flex items-center gap-2 mb-2">
+                            {editingJetNameId === u.id ? (
+                              <>
+                                <div className="flex gap-2 flex-1">
+                                  <input
+                                    type="text"
+                                    className="flex-1 p-2 border rounded text-sm"
+                                    placeholder="Nome do jet"
+                                    value={tempJetName}
+                                    onChange={(e) => setTempJetName(e.target.value)}
+                                    autoFocus
+                                  />
+                                  <button
+                                    onClick={() => saveJetName(u)}
+                                    className="p-2 bg-green-600 text-white rounded text-sm font-bold hover:bg-green-700 transition active:scale-95"
+                                    title="Salvar"
+                                  >
+                                    ✓
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setEditingJetNameId(null);
+                                      setTempJetName('');
+                                    }}
+                                    className="p-2 bg-red-600 text-white rounded text-sm font-bold hover:bg-red-700 transition active:scale-95"
+                                    title="Cancelar"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-sm text-gray-700 flex-1"><strong>Nome:</strong> {u.jetName || '---'}</p>
+                                <button
+                                  onClick={() => {
+                                    setEditingJetNameId(u.id);
+                                    setTempJetName(u.jetName || '');
+                                  }}
+                                  className="p-1.5 bg-blue-600 text-white rounded-lg border border-blue-200 hover:bg-blue-700 transition shadow-sm active:scale-95"
+                                  title="Editar nome do jet"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                  </svg>
+                                </button>
+                              </>
+                            )}
+                          </div>
                           <p className="text-sm text-gray-700"><strong>Fab:</strong> {u.jetSkiManufacturer}</p>
                           <p className="text-sm text-gray-700"><strong>Mod:</strong> {u.jetSkiModel} ({u.jetSkiYear})</p>
                           <p className="text-sm text-gray-700"><strong>Proprietário:</strong> {u.ownerType === 'UNICO' ? 'Único' : 'Cotista'}</p>

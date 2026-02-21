@@ -19,14 +19,21 @@ export const useUserDeletion = ({
   onDeletedCurrentUser,
 }: UseUserDeletionParams) => {
   const deleteUser = useCallback(async (userId: string) => {
+    console.log('[useUserDeletion] Iniciando deleção do usuário:', userId);
     const confirmed = window.confirm(
       'Tem certeza que deseja excluir este cliente permanentemente? Todas as reservas associadas também serão removidas.'
     );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      console.log('[useUserDeletion] Deleção cancelada pelo usuário');
+      return;
+    }
 
     const userToDelete = users.find((u) => u.id === userId);
+    console.log('[useUserDeletion] Usuário a deletar:', userToDelete?.name);
+    
     const { success, error } = await usersService.deleteUser(userId);
+    console.log('[useUserDeletion] Resultado da deleção - success:', success, 'error:', error);
 
     if (error) {
       alert('Erro ao deletar usuário: ' + error);
@@ -42,6 +49,7 @@ export const useUserDeletion = ({
 
       setUsers((prev) => prev.filter((u) => u.id !== userId));
       setReservations((prev) => prev.filter((r) => r.userId !== userId));
+      console.log('[useUserDeletion] Usuário deletado com sucesso');
     }
   }, [users, currentUser, setUsers, setReservations, onDeletedCurrentUser]);
 
