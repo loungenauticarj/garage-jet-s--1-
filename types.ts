@@ -58,6 +58,12 @@ export interface Reservation {
   route: string;
   status: JetStatus;
   photos: string[];
+  // Timestamps para histórico
+  createdAt?: string; // Quando a reserva foi criada
+  inWaterAt?: string; // Quando indo para água
+  navigatingAt?: string; // Quando começou a navegar
+  returnedAt?: string; // Quando retornou
+  checkedInAt?: string; // Quando fez check-in com fotos
 }
 
 export interface AppState {

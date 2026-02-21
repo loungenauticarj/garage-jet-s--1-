@@ -817,6 +817,83 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
                             </>
                           )}
                         </div>
+
+                        {/* Histórico de Reservas */}
+                        {(() => {
+                          const userReservations = reservations.filter(r => r.userId === u.id).slice(0, 5);
+                          if (userReservations.length === 0) return null;
+                          
+                          return (
+                            <div className="p-3 bg-amber-50 rounded-xl border border-amber-100">
+                              <p className="text-xs font-black text-amber-800 uppercase tracking-widest mb-2">📜 Histórico de Uso</p>
+                              <div className="space-y-3 max-h-96 overflow-y-auto">
+                                {userReservations.map(res => (
+                                  <div key={res.id} className="bg-white p-3 rounded-lg border border-amber-100 text-xs">
+                                    <div className="flex justify-between items-start mb-2">
+                                      <p className="font-bold text-gray-800">📅 {new Date(res.date).toLocaleDateString('pt-BR')}</p>
+                                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                                        res.status === 'CHECKED_IN' ? 'bg-green-100 text-green-700' :
+                                        res.status === 'RETURNED' ? 'bg-yellow-100 text-yellow-700' :
+                                        res.status === 'NAVIGATING' ? 'bg-blue-100 text-blue-700' :
+                                        res.status === 'IN_WATER' ? 'bg-cyan-100 text-cyan-700' :
+                                        'bg-gray-100 text-gray-700'
+                                      }`}>
+                                        {res.status === 'CHECKED_IN' ? '✅ Finalizado' :
+                                         res.status === 'RETURNED' ? '🔄 Retornou' :
+                                         res.status === 'NAVIGATING' ? '⛵ Navegando' :
+                                         res.status === 'IN_WATER' ? '🌊 Na água' :
+                                         '🏁 Na vaga'}
+                                      </span>
+                                    </div>
+                                    
+                                    <div className="space-y-1 text-gray-600">
+                                      {res.createdAt && (
+                                        <p>• <strong>Reservado:</strong> {new Date(res.createdAt).toLocaleString('pt-BR', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'})}</p>
+                                      )}
+                                      {res.inWaterAt && (
+                                        <p>• <strong>Indo p/ água:</strong> {new Date(res.inWaterAt).toLocaleString('pt-BR', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'})}</p>
+                                      )}
+                                      {res.navigatingAt && (
+                                        <p>• <strong>Navegando:</strong> {new Date(res.navigatingAt).toLocaleString('pt-BR', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'})}</p>
+                                      )}
+                                      {res.returnedAt && (
+                                        <p>• <strong>Retornou:</strong> {new Date(res.returnedAt).toLocaleString('pt-BR', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'})}</p>
+                                      )}
+                                      {res.checkedInAt && (
+                                        <p>• <strong>Check-in:</strong> {new Date(res.checkedInAt).toLocaleString('pt-BR', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'})}</p>
+                                      )}
+                                    </div>
+
+                                    {res.photos && res.photos.length > 0 && (
+                                      <div className="mt-2 pt-2 border-t border-gray-100">
+                                        <p className="font-semibold text-gray-700 mb-1">📸 Fotos ({res.photos.length})</p>
+                                        <div className="grid grid-cols-4 gap-1">
+                                          {res.photos.slice(0, 4).map((photo, idx) => (
+                                            <img
+                                              key={idx}
+                                              src={photo}
+                                              alt={`Foto ${idx + 1}`}
+                                              className="w-full h-12 object-cover rounded border border-gray-200 cursor-pointer hover:scale-105 transition"
+                                              onClick={() => window.open(photo, '_blank')}
+                                            />
+                                          ))}
+                                        </div>
+                                        {res.photos.length > 4 && (
+                                          <p className="text-xs text-gray-500 mt-1">+ {res.photos.length - 4} mais</p>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                              {reservations.filter(r => r.userId === u.id).length > 5 && (
+                                <p className="text-xs text-gray-500 text-center mt-2">
+                                  Mostrando últimas 5 de {reservations.filter(r => r.userId === u.id).length} reservas
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm text-gray-600 border-t pt-4">

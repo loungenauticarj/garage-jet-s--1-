@@ -31,6 +31,11 @@ export async function getUserReservations(userId: string): Promise<{ reservation
             route: r.route,
             status: r.status as JetStatus,
             photos: r.photos || [],
+            createdAt: r.created_at,
+            inWaterAt: r.in_water_at,
+            navigatingAt: r.navigating_at,
+            returnedAt: r.returned_at,
+            checkedInAt: r.checked_in_at,
         }));
 
         return { reservations, error: null };
@@ -69,6 +74,11 @@ export async function getAllReservations(): Promise<{ reservations: Reservation[
             route: r.route,
             status: r.status as JetStatus,
             photos: r.photos || [],
+            createdAt: r.created_at,
+            inWaterAt: r.in_water_at,
+            navigatingAt: r.navigating_at,
+            returnedAt: r.returned_at,
+            checkedInAt: r.checked_in_at,
         }));
 
         return { reservations, error: null };
@@ -120,6 +130,7 @@ export async function createReservation(
             route: data.route,
             status: data.status as JetStatus,
             photos: data.photos || [],
+            createdAt: data.created_at,
         };
 
         return { reservation, error: null };
@@ -140,9 +151,24 @@ export async function updateReservation(
         if (updates.date !== undefined) updateData.date = updates.date;
         if (updates.time !== undefined) updateData.time = updates.time;
         if (updates.route !== undefined) updateData.route = updates.route;
-        if (updates.status !== undefined) updateData.status = updates.status;
         if (updates.photos !== undefined) updateData.photos = updates.photos;
         if (updates.jetName !== undefined) updateData.jet_name = updates.jetName;
+        
+        // Atualizar status e registrar timestamp da transição
+        if (updates.status !== undefined) {
+            updateData.status = updates.status;
+            const now = new Date().toISOString();
+            
+            if (updates.status === JetStatus.IN_WATER) {
+                updateData.in_water_at = now;
+            } else if (updates.status === JetStatus.NAVIGATING) {
+                updateData.navigating_at = now;
+            } else if (updates.status === JetStatus.RETURNED) {
+                updateData.returned_at = now;
+            } else if (updates.status === JetStatus.CHECKED_IN) {
+                updateData.checked_in_at = now;
+            }
+        }
 
         const { data, error } = await supabase
             .from('reservations')
@@ -166,6 +192,11 @@ export async function updateReservation(
             route: data.route,
             status: data.status as JetStatus,
             photos: data.photos || [],
+            createdAt: data.created_at,
+            inWaterAt: data.in_water_at,
+            navigatingAt: data.navigating_at,
+            returnedAt: data.returned_at,
+            checkedInAt: data.checked_in_at,
         };
 
         return { reservation, error: null };

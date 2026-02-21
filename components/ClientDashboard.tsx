@@ -237,7 +237,13 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                     <div className="mt-2 flex gap-2">
                       <button
                         onClick={() => onDeleteReservation(currentRes.id)}
-                        className="text-[10px] font-bold px-2 py-1 rounded bg-red-600 text-white shadow-sm"
+                        disabled={currentRes.status !== JetStatus.IN_DOCK}
+                        className={`text-[10px] font-bold px-2 py-1 rounded shadow-sm ${
+                          currentRes.status === JetStatus.IN_DOCK
+                            ? 'bg-red-600 text-white hover:bg-red-700 transition cursor-pointer'
+                            : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                        }`}
+                        title={currentRes.status === JetStatus.IN_DOCK ? 'Excluir agendamento' : 'Não pode excluir: O jet já saiu da vaga'}
                       >
                         Excluir
                       </button>
@@ -488,7 +494,7 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                       }`}>
                       {StatusLabels[res.status]}
                     </div>
-                    {res.status !== JetStatus.CHECKED_IN && (
+                    {res.status === JetStatus.IN_DOCK && (
                       <button
                         onClick={() => onDeleteReservation(res.id)}
                         className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-600 text-white hover:bg-red-700 transition"
