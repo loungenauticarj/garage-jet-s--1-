@@ -23,7 +23,7 @@ interface Props {
 
 const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations, maintenanceBlocks, onAddReservation, onDeleteReservation, onUpdateReservation }) => {
   const [showResForm, setShowResForm] = useState(false);
-  const [activeTab, setActiveTab] = useState<'STATUS' | 'HISTORY' | 'CALENDAR'>('STATUS');
+  const [activeTab, setActiveTab] = useState<'STATUS' | 'HISTORY' | 'NOTIFICATIONS' | 'CALENDAR'>('STATUS');
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
@@ -179,6 +179,33 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
 
   const sortedReservations = [...reservations].sort((a, b) => b.date.localeCompare(a.date));
   const currentRes = sortedReservations[0];
+  const fuelNotifications = sortedReservations.filter(r => !!r.fuelReceiptPhoto);
+  const notificationStorageKey = `fuel_notifications_seen_${user.id}`;
+  const [seenFuelNotificationIds, setSeenFuelNotificationIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(notificationStorageKey);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const unreadFuelNotifications = fuelNotifications.filter(r => !seenFuelNotificationIds.includes(r.id));
+
+  useEffect(() => {
+    localStorage.setItem(notificationStorageKey, JSON.stringify(seenFuelNotificationIds));
+  }, [notificationStorageKey, seenFuelNotificationIds]);
+
+  useEffect(() => {
+    if (activeTab !== 'NOTIFICATIONS') return;
+
+    const unseenIds = fuelNotifications
+      .map(notification => notification.id)
+      .filter(notificationId => !seenFuelNotificationIds.includes(notificationId));
+
+    if (unseenIds.length === 0) return;
+
+    setSeenFuelNotificationIds(prev => Array.from(new Set([...prev, ...unseenIds])));
+  }, [activeTab, fuelNotifications, seenFuelNotificationIds]);
 
   const findJetDateConflict = (date: string, excludeId?: string) => {
     if (!user.jetName) return null;
@@ -204,6 +231,18 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
 
   const buildDateString = (year: number, month: number, day: number) => {
     return `${year}-${padNumber(month + 1)}-${padNumber(day)}`;
+  };
+
+  const getReservationTimestamp = (reservation: Reservation) => {
+    const timeValue = reservation.time && reservation.time.length >= 5 ? reservation.time : '00:00';
+    const [hour, minute] = timeValue.split(':');
+    return new Date(
+      Number(reservation.date.slice(0, 4)),
+      Number(reservation.date.slice(5, 7)) - 1,
+      Number(reservation.date.slice(8, 10)),
+      Number(hour),
+      Number(minute)
+    ).getTime();
   };
 
   const reservedDates = new Set(
@@ -337,14 +376,16 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
 
     onUpdateReservation(updatedRes);
 
-    // Buscar reserva anterior do mesmo jet que passou pelas etapas
+    // Buscar reserva anterior do mesmo jet (inclui mesmo dia, pelo horário)
+    const currentResTimestamp = getReservationTimestamp(currentRes);
     const previousReservation = allReservations
       .filter(r => 
+        r.id !== currentRes.id &&
         normalizeJetName(r.jetName) === normalizeJetName(currentRes.jetName) &&
-        r.date < currentRes.date &&
+        getReservationTimestamp(r) < currentResTimestamp &&
         (r.status === JetStatus.RETURNED || r.status === JetStatus.CHECKED_IN)
       )
-      .sort((a, b) => b.date.localeCompare(a.date))[0];
+      .sort((a, b) => getReservationTimestamp(b) - getReservationTimestamp(a))[0];
 
     // Se encontrou reserva anterior, enviar dados de abastecimento
     if (previousReservation) {
@@ -519,6 +560,17 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
           className={`flex-1 py-2 text-xs font-bold rounded-md transition ${activeTab === 'HISTORY' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500'}`}
         >
           Histórico
+        </button>
+        <button
+          onClick={() => setActiveTab('NOTIFICATIONS')}
+          className={`flex-1 py-2 text-xs font-bold rounded-md transition flex items-center justify-center gap-1 ${activeTab === 'NOTIFICATIONS' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500'}`}
+        >
+          Notificações
+          {unreadFuelNotifications.length > 0 && (
+            <span className={`min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-black flex items-center justify-center ${activeTab === 'NOTIFICATIONS' ? 'bg-white text-blue-700' : 'bg-blue-600 text-white'}`}>
+              {unreadFuelNotifications.length}
+            </span>
+          )}
         </button>
       </div>
 
@@ -1028,7 +1080,7 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
             </div>
           )}
         </div>
-      ) : (
+      ) : activeTab === 'HISTORY' ? (
         <div className="space-y-3 animate-in fade-in duration-500">
           <h3 className="text-base font-bold text-gray-800 mb-1">Histórico</h3>
           {reservations.length > 0 ? (
@@ -1110,6 +1162,38 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
           ) : (
             <div className="py-12 text-center text-sm text-gray-400 bg-white rounded-2xl border border-dashed">
               Vazio.
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-3 animate-in fade-in duration-500">
+          <h3 className="text-base font-bold text-gray-800 mb-1">Notificações</h3>
+          {fuelNotifications.length > 0 ? (
+            fuelNotifications
+              .map((res) => (
+                <div key={`notify-${res.id}`} className="bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-300 rounded-xl p-3 shadow-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-black text-orange-900 uppercase">⛽ Reembolso recebido</p>
+                    <span className="text-[10px] font-bold text-orange-700">
+                      {res.date.split('-').reverse().join('/')} • {res.time}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-700 mb-2">
+                    O usuário do próximo agendamento enviou a nota de abastecimento e dados de PIX para este agendamento.
+                  </p>
+                  <div className="aspect-video overflow-hidden rounded-lg border-2 border-orange-400 shadow-sm bg-white mb-2">
+                    <img src={res.fuelReceiptPhoto} alt="Nota fiscal" className="w-full h-full object-contain" />
+                  </div>
+                  <div className="bg-white rounded-lg p-2.5 border-2 border-orange-300 shadow-sm">
+                    <p className="text-xs font-bold text-gray-700 mb-1">Dados para reembolso:</p>
+                    <p className="text-xs text-gray-700"><strong>Nome PIX:</strong> {res.fuelPixName}</p>
+                    <p className="text-xs text-gray-700 break-all"><strong>Chave PIX:</strong> {res.fuelPixNumber}</p>
+                  </div>
+                </div>
+              ))
+          ) : (
+            <div className="py-12 text-center text-sm text-gray-400 bg-white rounded-2xl border border-dashed">
+              Nenhuma notificação de abastecimento recebida.
             </div>
           )}
         </div>
