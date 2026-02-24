@@ -266,10 +266,18 @@ export async function login(email: string, password: string, role: 'CLIENT' | 'M
             const operationalEmail = 'operacional@marina.com';
             const operationalPassword = '9876';
 
-            if (email !== operationalEmail || password !== operationalPassword) {
+            // Verificar se há senha resetada em localStorage
+            const storedPassword = localStorage.getItem(`pwd_${operationalEmail}`);
+            const validPassword = storedPassword || operationalPassword;
+
+            if (email !== operationalEmail || password !== validPassword) {
                 return { user: null, error: 'Credenciais operacionais inválidas' };
             }
-            localStorage.setItem(`pwd_${operationalEmail}`, operationalPassword);
+            
+            // Se não houver senha armazenada, salvar a padrão
+            if (!storedPassword) {
+                localStorage.setItem(`pwd_${operationalEmail}`, operationalPassword);
+            }
 
             const user: User = {
                 id: 'operational-local',
@@ -308,8 +316,15 @@ export async function login(email: string, password: string, role: 'CLIENT' | 'M
 
         // Verify password (stored in localStorage for simplicity)
         const storedPassword = localStorage.getItem(`pwd_${email}`);
-        if (storedPassword !== password) {
-            return { user: null, error: 'Senha incorreta' };
+        // Se houver senha armazenada, validar contra ela
+        // Se não houver, significa que é novo ou foi resetada - aceitar a senha digitada e salvar
+        if (storedPassword) {
+            if (storedPassword !== password) {
+                return { user: null, error: 'Senha incorreta' };
+            }
+        } else {
+            // Primeira tentativa após reset ou novo login - salvar a senha na localStorage
+            localStorage.setItem(`pwd_${email}`, password);
         }
 
         const user: User = {

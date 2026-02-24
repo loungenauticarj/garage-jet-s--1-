@@ -39,6 +39,9 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
   const [fuelReceiptPhoto, setFuelReceiptPhoto] = useState<string>('');
   const [fuelPixName, setFuelPixName] = useState<string>('');
   const [fuelPixNumber, setFuelPixNumber] = useState<string>('');
+  const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
+  const [resetPasswordDefault, setResetPasswordDefault] = useState<string>('');
+  const [newPasswordInput, setNewPasswordInput] = useState<string>('');
   const previousPasswordRef = useRef<string>(user.password);
 
   // Monitorar mudanças na senha (quando admin reseta)
@@ -47,14 +50,32 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
     
     if (storedPassword && storedPassword !== previousPasswordRef.current && storedPassword !== user.password) {
       previousPasswordRef.current = storedPassword;
-      
-      alert(`✓ Sua senha foi redefinida!\n\nNova senha: ${storedPassword}\n\nFaça login novamente com a nova senha.`);
-      
-      // Forçar logout
-      localStorage.removeItem('currentUser');
-      window.location.reload();
+      setResetPasswordDefault(storedPassword);
+      setNewPasswordInput(storedPassword);
+      setShowPasswordResetModal(true);
     }
   }, [user.email, user.password]);
+
+  const handlePasswordResetConfirm = () => {
+    if (!newPasswordInput || newPasswordInput.trim() === '') {
+      alert('Digite a nova senha.');
+      return;
+    }
+
+    // Atualizar no localStorage
+    localStorage.setItem(`pwd_${user.email}`, newPasswordInput);
+    
+    // Fechar modal
+    setShowPasswordResetModal(false);
+    setNewPasswordInput('');
+    
+    // Alert de sucesso
+    alert(`✓ Senha atualizada com sucesso!\n\nVocê será deslogado para fazer login com a nova senha.`);
+    
+    // Logout para fazer login novamente
+    localStorage.removeItem('currentUser');
+    window.location.reload();
+  };
 
   const normalizeJetName = (value?: string) => (value || '').trim().toLowerCase();
   const getTodayDate = () => new Date().toLocaleDateString('en-CA');
@@ -350,6 +371,87 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
 
   return (
     <div className="space-y-4 pb-20">
+      {/* Modal de Reset de Senha */}
+      {showPasswordResetModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border-2 border-blue-500 max-w-sm w-full animate-in slide-in-from-bottom duration-300">
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 rounded-t-xl">
+              <h3 className="text-lg font-black flex items-center gap-2">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                Atualize sua senha
+              </h3>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <p className="text-sm text-gray-700 mb-3">
+                  ✓ Sua senha foi redefinida pelo administrador!
+                </p>
+                <p className="text-xs text-gray-600 mb-1 font-bold">Senha provisória:</p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                  <p className="text-sm font-black text-blue-700 tracking-wide">{resetPasswordDefault}</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-black text-gray-600 uppercase mb-2">Digite sua nova senha</label>
+                <input
+                  type="password"
+                  value={newPasswordInput}
+                  onChange={(e) => setNewPasswordInput(e.target.value)}
+                  placeholder="Digite a senha que deseja usar"
+                  className="w-full px-4 py-3 border-2 border-blue-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handlePasswordResetConfirm();
+                    }
+                  }}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Você pode manter a senha provisória ou criar uma nova
+                </p>
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                <button
+                  onClick={() => {
+                    setShowPasswordResetModal(false);
+                    setNewPasswordInput('');
+                  }}
+                  className="flex-1 px-4 py-2.5 rounded-lg border-2 border-gray-300 text-gray-700 font-bold hover:bg-gray-50 transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    setNewPasswordInput(resetPasswordDefault);
+                    // Delay para atualizar state antes de confirmar
+                    setTimeout(() => {
+                      localStorage.setItem(`pwd_${user.email}`, resetPasswordDefault);
+                      alert('✓ Senha confirmada! Você será deslogado para fazer login.');
+                      localStorage.removeItem('currentUser');
+                      window.location.reload();
+                    }, 50);
+                  }}
+                  className="flex-1 px-4 py-2.5 rounded-lg border-2 border-blue-500 text-blue-600 font-bold hover:bg-blue-50 transition"
+                >
+                  Usar essa
+                </button>
+                <button
+                  onClick={handlePasswordResetConfirm}
+                  disabled={!newPasswordInput}
+                  className="flex-1 px-4 py-2.5 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  ✓ Confirmar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Perfil do Cliente */}
       <div className="bg-white p-4 rounded-2xl shadow-md border border-blue-50 flex justify-between items-center bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-50 via-white to-white">
         <div>
