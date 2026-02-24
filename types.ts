@@ -66,6 +66,13 @@ export interface Reservation {
   checkedInAt?: string; // Quando fez check-in com fotos
 }
 
+export interface MaintenanceBlock {
+  id: string;
+  jetName: string;
+  date: string;
+  createdAt: string;
+}
+
 export interface AppState {
   currentUser: User | null;
   users: User[];

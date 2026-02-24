@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import { JetStatus, Reservation, StatusLabels, User } from '../types';
+import { JetStatus, MaintenanceBlock, Reservation, StatusLabels, User } from '../types';
 import { formatCEP, formatPhone, toTitleCase } from '../utils';
 
 const JET_NAMES = [
@@ -29,13 +29,26 @@ const getJetOwnerLimit = (jetName: string): number => {
 interface Props {
   reservations: Reservation[];
   users: User[];
+  maintenanceBlocks: MaintenanceBlock[];
   onUpdateReservation: (res: Reservation) => void;
   onUpdateUser: (updatedUser: User) => Promise<boolean>;
   onDeleteUser: (userId: string) => void;
+  onAddMaintenanceBlock: (block: Omit<MaintenanceBlock, 'id' | 'createdAt'>) => void;
+  onRemoveMaintenanceBlock: (blockId: string) => void;
   operationsOnly?: boolean;
 }
 
-const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReservation, onUpdateUser, onDeleteUser, operationsOnly = false }) => {
+const MarinaDashboard: React.FC<Props> = ({
+  reservations,
+  users,
+  maintenanceBlocks,
+  onUpdateReservation,
+  onUpdateUser,
+  onDeleteUser,
+  onAddMaintenanceBlock,
+  onRemoveMaintenanceBlock,
+  operationsOnly = false,
+}) => {
   const [activeTab, setActiveTab] = useState<'OPERATIONS' | 'CLIENTS' | 'FINANCE'>('OPERATIONS');
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editingRegistrationId, setEditingRegistrationId] = useState<string | null>(null);
@@ -49,6 +62,9 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState<string[]>([]);
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [showMaintenanceForm, setShowMaintenanceForm] = useState(false);
+  const [maintenanceDate, setMaintenanceDate] = useState<string>('');
+  const [maintenanceJetName, setMaintenanceJetName] = useState<string>('');
   const [jetNames, setJetNames] = useState<string[]>(() => {
     const storedJetNames = localStorage.getItem('marina_jet_names');
     if (!storedJetNames) return JET_NAMES;
@@ -61,6 +77,15 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
     }
   });
   const [newJetName, setNewJetName] = useState('');
+
+  const cotistaJetNames = Array.from(
+    new Set(
+      users
+        .filter(user => user.ownerType === 'COTISTA' && Boolean(user.jetName))
+        .map(user => (user.jetName || '').trim())
+        .filter(Boolean)
+    )
+  ).sort((a, b) => (a as string).localeCompare(b as string));
 
   useEffect(() => {
     if (operationsOnly && activeTab !== 'OPERATIONS') {
@@ -121,6 +146,32 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
     localStorage.setItem('marina_jet_names', JSON.stringify(updatedJetNames));
     setRegForm(prev => ({ ...prev, jetName: normalizedJetName }));
     setNewJetName('');
+  };
+
+  const addMaintenanceBlock = () => {
+    if (!maintenanceJetName || !maintenanceDate) {
+      alert('Selecione o jet e a data para bloquear manutenção.');
+      return;
+    }
+
+    const alreadyExists = maintenanceBlocks.some(
+      block => block.jetName === maintenanceJetName && block.date === maintenanceDate
+    );
+
+    if (alreadyExists) {
+      alert('Já existe bloqueio de manutenção para esse jet nessa data.');
+      return;
+    }
+
+    onAddMaintenanceBlock({ jetName: maintenanceJetName, date: maintenanceDate });
+    setToastMessage('Bloqueio de manutenção criado com sucesso.');
+    setTimeout(() => setToastMessage(null), 2000);
+  };
+
+  const removeMaintenanceBlock = (blockId: string) => {
+    onRemoveMaintenanceBlock(blockId);
+    setToastMessage('Bloqueio de manutenção removido.');
+    setTimeout(() => setToastMessage(null), 2000);
   };
 
 
@@ -398,24 +449,109 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
 
       {activeTab === 'OPERATIONS' && (
         <div className="space-y-8 animate-in fade-in duration-500">
-          {/* Date Picker */}
-          <div className="bg-white p-4 rounded-xl shadow-sm border flex flex-col gap-3">
-            <div className="flex items-center gap-3">
-              <label className="text-sm font-bold text-gray-600">Selecionar data:</label>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="px-3 py-2 border rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none"
-              />
-              <button
-                onClick={() => {
-                  setSelectedDate(today);
-                }}
-                className="ml-auto px-3 py-2 bg-blue-100 text-blue-700 text-xs font-bold rounded-lg hover:bg-blue-200 transition"
-              >
-                Hoje
-              </button>
+          {/* Date Picker and Maintenance */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Date Picker */}
+            <div className="bg-white p-4 rounded-xl shadow-sm border">
+              <div className="flex items-center gap-3">
+                <label className="text-sm font-bold text-gray-600">Selecionar data:</label>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="px-3 py-2 border rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+                <button
+                  onClick={() => {
+                    setSelectedDate(today);
+                  }}
+                  className="ml-auto px-3 py-2 bg-blue-100 text-blue-700 text-xs font-bold rounded-lg hover:bg-blue-200 transition"
+                >
+                  Hoje
+                </button>
+              </div>
+            </div>
+
+            {/* Maintenance Card */}
+            <div className="bg-gradient-to-r from-amber-50 to-amber-100 p-4 rounded-xl shadow-sm border border-amber-200">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <svg className="w-5 h-5 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <p className="text-sm font-bold text-amber-900">Manutenção Jets Cotistas</p>
+                </div>
+                <button
+                  onClick={() => setShowMaintenanceForm(prev => !prev)}
+                  className="px-4 py-2.5 bg-amber-600 text-white text-sm font-bold rounded-lg hover:bg-amber-700 transition shadow-sm"
+                >
+                  {showMaintenanceForm ? '✕ Fechar' : '+ Bloquear Data'}
+                </button>
+              </div>
+
+              {showMaintenanceForm && (
+                <div className="space-y-3 mb-3">
+                  <div className="grid grid-cols-1 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-amber-900 mb-1">Jet cotista</label>
+                      <select
+                        className="w-full px-3 py-2 border border-amber-300 rounded-lg text-sm font-medium bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                        value={maintenanceJetName}
+                        onChange={(e) => setMaintenanceJetName(e.target.value)}
+                      >
+                        <option value="">Selecione o jet</option>
+                        {cotistaJetNames.map((jet) => (
+                          <option key={jet} value={jet}>{jet}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-[1fr_auto] gap-2">
+                      <div>
+                        <label className="block text-xs font-bold text-amber-900 mb-1">Data bloqueio</label>
+                        <input
+                          type="date"
+                          className="w-full px-3 py-2 border border-amber-300 rounded-lg text-sm font-medium bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                          value={maintenanceDate}
+                          onChange={(e) => setMaintenanceDate(e.target.value)}
+                        />
+                      </div>
+                      <div className="flex items-end">
+                        <button
+                          onClick={addMaintenanceBlock}
+                          className="w-full px-4 py-2 bg-amber-700 text-white text-sm font-bold rounded-lg hover:bg-amber-800 transition whitespace-nowrap"
+                        >
+                          Adicionar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {maintenanceBlocks.length > 0 && (
+                <div className="bg-white border border-amber-300 rounded-lg p-3">
+                  <p className="text-xs font-bold text-amber-800 mb-2">📋 Bloqueios ativos ({maintenanceBlocks.length})</p>
+                  <div className="space-y-1 max-h-40 overflow-y-auto">
+                    {maintenanceBlocks
+                      .slice()
+                      .sort((a, b) => a.date.localeCompare(b.date))
+                      .map((block) => (
+                        <div key={block.id} className="flex items-center justify-between text-xs text-gray-700 bg-amber-50 rounded px-2 py-1.5 border border-amber-200">
+                          <span className="font-medium">{block.date.split('-').reverse().join('/')} • {block.jetName}</span>
+                          <button
+                            onClick={() => removeMaintenanceBlock(block.id)}
+                            className="text-red-600 hover:text-red-700 font-bold text-xs hover:underline"
+                            title="Remover bloqueio"
+                          >
+                            Remover
+                          </button>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

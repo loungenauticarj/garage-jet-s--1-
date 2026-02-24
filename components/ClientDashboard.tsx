@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { JetStatus, Reservation, StatusLabels, User } from '../types';
+import { JetStatus, MaintenanceBlock, Reservation, StatusLabels, User } from '../types';
 import { generateId } from '../utils';
 
 const JetSkiIcon = ({ className = "w-10 h-10" }: { className?: string }) => (
@@ -15,11 +15,12 @@ interface Props {
   user: User;
   reservations: Reservation[];
   allReservations: Reservation[];
+  maintenanceBlocks: MaintenanceBlock[];
   onAddReservation: (res: Reservation) => void;
   onDeleteReservation: (reservationId: string) => void;
 }
 
-const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations, onAddReservation, onDeleteReservation }) => {
+const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations, maintenanceBlocks, onAddReservation, onDeleteReservation }) => {
   const [showResForm, setShowResForm] = useState(false);
   const [activeTab, setActiveTab] = useState<'STATUS' | 'HISTORY' | 'CALENDAR'>('STATUS');
   const [calendarMonth, setCalendarMonth] = useState(() => {
@@ -33,6 +34,18 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
   });
 
   const normalizeJetName = (value?: string) => (value || '').trim().toLowerCase();
+  const getTodayDate = () => new Date().toLocaleDateString('en-CA');
+  const isAfterDailyUnlock = () => {
+    const now = new Date();
+    return now.getHours() > 0 || now.getMinutes() >= 1;
+  };
+
+  const hasFutureReservationBlock = (activeReservations: Reservation[], today: string, hasUnlockedCurrentDay: boolean) => {
+    return activeReservations.some(r =>
+      r.status !== JetStatus.CHECKED_IN &&
+      (r.date > today || (!hasUnlockedCurrentDay && r.date === today))
+    );
+  };
 
   const handleSubmitRes = (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,22 +55,22 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
     }
 
     // Get today's date in YYYY-MM-DD format
-    const today = new Date().toLocaleDateString('en-CA');
+    const today = getTodayDate();
+    const hasUnlockedCurrentDay = isAfterDailyUnlock();
 
     // Validate: each cotista can have only 1 active reservation at a time
     // But allow new reservation ONLY for today if there's a future reservation
     if (user.ownerType === 'COTISTA') {
-      const activeReservations = reservations.filter(r => 
-        r.status !== JetStatus.CHECKED_IN
-      );
+      const activeReservations = reservations.filter(r => r.status !== JetStatus.CHECKED_IN);
       
-      // Check if there's an active reservation after today
-      const hasFutureReservation = activeReservations.some(r => r.date > today);
+      // Check if there's an active reservation after today.
+      // Before 00:01, reservation of today is still considered blocking.
+      const hasFutureReservation = hasFutureReservationBlock(activeReservations, today, hasUnlockedCurrentDay);
       
       if (hasFutureReservation) {
         // If they have a future reservation, they can only book for today
         if (newRes.date !== today) {
-          alert('Você possui agendamento em data futura. Novo agendamento permitido apenas para hoje (no dia da reserva atual).');
+          alert('Você possui agendamento em data futura. Novo agendamento permitido apenas para hoje (a partir de 00:01 no dia da reserva atual).');
           return;
         }
       }
@@ -72,6 +85,11 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
 
     // Validate: only one departure per jet on the same day (COTISTA only)
     if (user.ownerType === 'COTISTA' && user.jetName) {
+      if (hasMaintenanceBlockForDate(newRes.date)) {
+        alert('Data bloqueada para manutenção deste jet. Escolha outra data.');
+        return;
+      }
+
       const conflict = allReservations.find(r =>
         r.date === newRes.date &&
         r.status !== JetStatus.CHECKED_IN &&
@@ -119,6 +137,15 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
     );
   };
 
+  const hasMaintenanceBlockForDate = (date: string) => {
+    if (user.ownerType !== 'COTISTA' || !user.jetName) return false;
+
+    return maintenanceBlocks.some(block =>
+      block.date === date &&
+      normalizeJetName(block.jetName) === normalizeJetName(user.jetName)
+    );
+  };
+
   const padNumber = (value: number) => value.toString().padStart(2, '0');
 
   const buildDateString = (year: number, month: number, day: number) => {
@@ -127,25 +154,37 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
 
   const reservedDates = new Set(
     user.jetName
-      ? allReservations
-          .filter(r => r.status !== JetStatus.CHECKED_IN && normalizeJetName(r.jetName) === normalizeJetName(user.jetName))
-          .map(r => r.date)
+      ? [
+          ...allReservations
+            .filter(r => r.status !== JetStatus.CHECKED_IN && normalizeJetName(r.jetName) === normalizeJetName(user.jetName))
+            .map(r => r.date),
+          ...(user.ownerType === 'COTISTA'
+            ? maintenanceBlocks
+                .filter(block => normalizeJetName(block.jetName) === normalizeJetName(user.jetName))
+                .map(block => block.date)
+            : []),
+        ]
       : []
   );
 
   const handleDateChange = (value: string) => {
-    const today = new Date().toLocaleDateString('en-CA');
+    const today = getTodayDate();
+    const hasUnlockedCurrentDay = isAfterDailyUnlock();
     
     // Check if cotista has a future reservation
     if (user.ownerType === 'COTISTA') {
-      const hasFutureReservation = reservations.some(r => 
-        r.status !== JetStatus.CHECKED_IN && r.date > today
-      );
+      const hasFutureReservation = hasFutureReservationBlock(reservations, today, hasUnlockedCurrentDay);
       
       if (hasFutureReservation && value !== today) {
-        alert('Você possui agendamento em data futura. Novo agendamento permitido apenas para hoje (no dia da reserva atual).');
+        alert('Você possui agendamento em data futura. Novo agendamento permitido apenas para hoje (a partir de 00:01 no dia da reserva atual).');
         return;
       }
+    }
+
+    if (hasMaintenanceBlockForDate(value)) {
+      alert('Data bloqueada para manutenção deste jet.');
+      setNewRes({ ...newRes, date: '' });
+      return;
     }
 
     const conflict = findJetDateConflict(value);
@@ -273,23 +312,44 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
 
           {!showResForm ? (
             (() => {
-              const today = new Date().toLocaleDateString('en-CA');
+              const today = getTodayDate();
+              const hasUnlockedCurrentDay = isAfterDailyUnlock();
+              const hasFutureReservation = user.ownerType === 'COTISTA' &&
+                hasFutureReservationBlock(reservations, today, hasUnlockedCurrentDay);
               const hasActivePastReservation = user.ownerType === 'COTISTA' && 
                 reservations.some(r => r.status !== JetStatus.CHECKED_IN && r.date < today);
+              const hasActiveReservationTodayBeforeUnlock = user.ownerType === 'COTISTA' &&
+                !hasUnlockedCurrentDay &&
+                reservations.some(r => r.status !== JetStatus.CHECKED_IN && r.date === today);
+              const isReservationBlocked = hasActivePastReservation || hasActiveReservationTodayBeforeUnlock || hasFutureReservation;
               
               return (
                 <button
                   onClick={() => setShowResForm(true)}
-                  disabled={hasActivePastReservation}
-                  title={hasActivePastReservation ? 'Finalize o check-in pendente para liberar novo agendamento' : ''}
+                  disabled={isReservationBlocked}
+                  title={
+                    hasActivePastReservation
+                      ? 'Finalize o check-in pendente para liberar novo agendamento'
+                      : hasActiveReservationTodayBeforeUnlock
+                        ? 'Novo agendamento liberado a partir de 00:01 no dia da reserva'
+                        : hasFutureReservation
+                          ? 'Nova data já agendada. Aguarde até o dia marcado para liberar novo agendamento'
+                        : ''
+                  }
                   className={`w-full font-black py-4 rounded-xl shadow-lg transition transform active:scale-95 flex items-center justify-center gap-2 ${
-                    hasActivePastReservation 
+                    isReservationBlocked 
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
                       : 'bg-blue-600 text-white hover:bg-blue-700'
                   }`}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-                  {hasActivePastReservation ? 'Pendência de agendamento - finalize check-in' : 'Reservar saída'}
+                  {hasActivePastReservation
+                    ? 'Pendência de agendamento - finalize check-in'
+                    : hasActiveReservationTodayBeforeUnlock
+                      ? 'Aguarde 00:01 para novo agendamento'
+                      : hasFutureReservation
+                        ? 'Nova data agendada - aguarde o dia'
+                      : 'Reservar saída'}
                 </button>
               );
             })()
@@ -370,7 +430,8 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                           const daysInMonth = new Date(year, month + 1, 0).getDate();
                           const startDay = new Date(year, month, 1).getDay();
                           const cells: (number | null)[] = [];
-                          const today = new Date().toLocaleDateString('en-CA');
+                          const today = getTodayDate();
+                          const hasUnlockedCurrentDay = isAfterDailyUnlock();
 
                           for (let i = 0; i < startDay; i += 1) {
                             cells.push(null);
@@ -381,8 +442,8 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                           }
 
                           // Check if cotista has a reservation after today
-                          const hasFutureReservation = user.ownerType === 'COTISTA' && 
-                            reservations.some(r => r.status !== JetStatus.CHECKED_IN && r.date > today);
+                          const hasFutureReservation = user.ownerType === 'COTISTA' &&
+                            hasFutureReservationBlock(reservations, today, hasUnlockedCurrentDay);
 
                           return cells.map((day, index) => {
                             if (!day) {
@@ -437,10 +498,18 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                                   r.status !== JetStatus.CHECKED_IN && 
                                   normalizeJetName(r.jetName) === normalizeJetName(user.jetName)
                                 );
+                                const maintenanceBlock = maintenanceBlocks.find(block =>
+                                  block.date === date &&
+                                  normalizeJetName(block.jetName) === normalizeJetName(user.jetName)
+                                );
                                 return (
                                   <span key={date} className="block">
                                     • {date.split('-').reverse().join('/')}
-                                    {blockingRes && blockingRes.userId !== user.id && ` (${blockingRes.userName})`}
+                                    {maintenanceBlock
+                                      ? ' (Manutenção)'
+                                      : blockingRes && blockingRes.userId !== user.id
+                                        ? ` (${blockingRes.userName})`
+                                        : ''}
                                   </span>
                                 );
                               })

@@ -8,7 +8,7 @@ import * as authService from './services/auth';
 import * as reservationsService from './services/reservations';
 import * as usersService from './services/users';
 import { supabase } from './supabaseClient';
-import { Reservation, User } from './types';
+import { MaintenanceBlock, Reservation, User } from './types';
 import {
   useReservationCreate,
   useReservationDelete,
@@ -37,6 +37,17 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [maintenanceBlocks, setMaintenanceBlocks] = useState<MaintenanceBlock[]>(() => {
+    const storedBlocks = localStorage.getItem('maintenance_blocks');
+    if (!storedBlocks) return [];
+
+    try {
+      const parsed = JSON.parse(storedBlocks);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
   const [loading, setLoading] = useState(true);
 
   // Load current user on mount
@@ -203,6 +214,35 @@ const App: React.FC = () => {
     setView('LOGIN');
   };
 
+  const handleAddMaintenanceBlock = (block: Omit<MaintenanceBlock, 'id' | 'createdAt'>) => {
+    const nextBlock: MaintenanceBlock = {
+      id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      jetName: block.jetName,
+      date: block.date,
+      createdAt: new Date().toISOString(),
+    };
+
+    setMaintenanceBlocks((prev) => {
+      const alreadyExists = prev.some(
+        existing => existing.jetName === nextBlock.jetName && existing.date === nextBlock.date
+      );
+
+      if (alreadyExists) return prev;
+
+      const updated = [...prev, nextBlock].sort((a, b) => a.date.localeCompare(b.date));
+      localStorage.setItem('maintenance_blocks', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const handleRemoveMaintenanceBlock = (blockId: string) => {
+    setMaintenanceBlocks((prev) => {
+      const updated = prev.filter(block => block.id !== blockId);
+      localStorage.setItem('maintenance_blocks', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   const { updateReservation } = useReservationUpdate({ setReservations });
 
   const { deleteReservation } = useReservationDelete({ setReservations });
@@ -272,6 +312,7 @@ const App: React.FC = () => {
             user={currentUser}
             reservations={reservations.filter(r => r.userId === currentUser.id)}
             allReservations={reservations}
+            maintenanceBlocks={maintenanceBlocks}
             onAddReservation={addReservation}
             onDeleteReservation={deleteReservation}
           />
@@ -280,9 +321,12 @@ const App: React.FC = () => {
           <MarinaDashboard
             reservations={reservations}
             users={users}
+            maintenanceBlocks={maintenanceBlocks}
             onUpdateReservation={updateReservation}
             onUpdateUser={updateUser}
             onDeleteUser={deleteUser}
+            onAddMaintenanceBlock={handleAddMaintenanceBlock}
+            onRemoveMaintenanceBlock={handleRemoveMaintenanceBlock}
             operationsOnly={currentUser?.role === 'OPERATIONAL'}
           />
         )}
