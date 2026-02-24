@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { JetStatus, MaintenanceBlock, Reservation, StatusLabels, User } from '../types';
 import { generateId } from '../utils';
 
@@ -39,6 +39,22 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
   const [fuelReceiptPhoto, setFuelReceiptPhoto] = useState<string>('');
   const [fuelPixName, setFuelPixName] = useState<string>('');
   const [fuelPixNumber, setFuelPixNumber] = useState<string>('');
+  const previousPasswordRef = useRef<string>(user.password);
+
+  // Monitorar mudanças na senha (quando admin reseta)
+  useEffect(() => {
+    const storedPassword = localStorage.getItem(`pwd_${user.email}`);
+    
+    if (storedPassword && storedPassword !== previousPasswordRef.current && storedPassword !== user.password) {
+      previousPasswordRef.current = storedPassword;
+      
+      alert(`✓ Sua senha foi redefinida!\n\nNova senha: ${storedPassword}\n\nFaça login novamente com a nova senha.`);
+      
+      // Forçar logout
+      localStorage.removeItem('currentUser');
+      window.location.reload();
+    }
+  }, [user.email, user.password]);
 
   const normalizeJetName = (value?: string) => (value || '').trim().toLowerCase();
   const getTodayDate = () => new Date().toLocaleDateString('en-CA');

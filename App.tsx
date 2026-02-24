@@ -254,6 +254,20 @@ const App: React.FC = () => {
 
   const { updateUser } = useUserUpdate({ users, setUsers });
 
+  // Wrapper para atualizar usuário e sincronizar com currentUser se necessário
+  const handleUpdateUserWithSync = async (updatedUser: User) => {
+    const success = await updateUser(updatedUser);
+    
+    // Se a atualização foi bem-sucedida e é o usuário logado, atualizar currentUser também
+    if (success && currentUser && updatedUser.id === currentUser.id) {
+      const newCurrentUser = { ...currentUser, ...updatedUser };
+      setCurrentUser(newCurrentUser);
+      localStorage.setItem('currentUser', JSON.stringify(newCurrentUser));
+    }
+    
+    return success;
+  };
+
   const { deleteUser } = useUserDeletion({
     users,
     currentUser,
@@ -324,7 +338,7 @@ const App: React.FC = () => {
             users={users}
             maintenanceBlocks={maintenanceBlocks}
             onUpdateReservation={updateReservation}
-            onUpdateUser={updateUser}
+            onUpdateUser={handleUpdateUserWithSync}
             onDeleteUser={deleteUser}
             onDeleteReservation={deleteReservation}
             onAddMaintenanceBlock={handleAddMaintenanceBlock}
