@@ -31,6 +31,10 @@ export async function getUserReservations(userId: string): Promise<{ reservation
             route: r.route,
             status: r.status as JetStatus,
             photos: r.photos || [],
+            clientPhotos: r.client_photos || r.clientPhotos || [],
+            fuelReceiptPhoto: r.fuel_receipt_photo || r.fuelReceiptPhoto || '',
+            fuelPixName: r.fuel_pix_name || r.fuelPixName || '',
+            fuelPixNumber: r.fuel_pix_number || r.fuelPixNumber || '',
             createdAt: r.created_at,
             inWaterAt: r.in_water_at,
             navigatingAt: r.navigating_at,
@@ -74,6 +78,10 @@ export async function getAllReservations(): Promise<{ reservations: Reservation[
             route: r.route,
             status: r.status as JetStatus,
             photos: r.photos || [],
+            clientPhotos: r.client_photos || r.clientPhotos || [],
+            fuelReceiptPhoto: r.fuel_receipt_photo || r.fuelReceiptPhoto || '',
+            fuelPixName: r.fuel_pix_name || r.fuelPixName || '',
+            fuelPixNumber: r.fuel_pix_number || r.fuelPixNumber || '',
             createdAt: r.created_at,
             inWaterAt: r.in_water_at,
             navigatingAt: r.navigating_at,
@@ -153,6 +161,10 @@ export async function updateReservation(
         if (updates.route !== undefined) updateData.route = updates.route;
         if (updates.photos !== undefined) updateData.photos = updates.photos;
         if (updates.jetName !== undefined) updateData.jet_name = updates.jetName;
+        if (updates.clientPhotos !== undefined) updateData.client_photos = updates.clientPhotos;
+        if (updates.fuelReceiptPhoto !== undefined) updateData.fuel_receipt_photo = updates.fuelReceiptPhoto;
+        if (updates.fuelPixName !== undefined) updateData.fuel_pix_name = updates.fuelPixName;
+        if (updates.fuelPixNumber !== undefined) updateData.fuel_pix_number = updates.fuelPixNumber;
         
         // Atualizar status e registrar timestamp da transição
         if (updates.status !== undefined) {
@@ -192,6 +204,10 @@ export async function updateReservation(
             route: data.route,
             status: data.status as JetStatus,
             photos: data.photos || [],
+            clientPhotos: data.client_photos || data.clientPhotos || [],
+            fuelReceiptPhoto: data.fuel_receipt_photo || data.fuelReceiptPhoto || '',
+            fuelPixName: data.fuel_pix_name || data.fuelPixName || '',
+            fuelPixNumber: data.fuel_pix_number || data.fuelPixNumber || '',
             createdAt: data.created_at,
             inWaterAt: data.in_water_at,
             navigatingAt: data.navigating_at,
