@@ -326,8 +326,10 @@ const App: React.FC = () => {
             onUpdateReservation={updateReservation}
             onUpdateUser={updateUser}
             onDeleteUser={deleteUser}
+            onDeleteReservation={deleteReservation}
             onAddMaintenanceBlock={handleAddMaintenanceBlock}
             onRemoveMaintenanceBlock={handleRemoveMaintenanceBlock}
+            currentUser={currentUser}
             operationsOnly={currentUser?.role === 'OPERATIONAL'}
           />
         )}

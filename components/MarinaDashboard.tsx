@@ -33,8 +33,10 @@ interface Props {
   onUpdateReservation: (res: Reservation) => void;
   onUpdateUser: (updatedUser: User) => Promise<boolean>;
   onDeleteUser: (userId: string) => void;
+  onDeleteReservation: (reservationId: string) => void;
   onAddMaintenanceBlock: (block: Omit<MaintenanceBlock, 'id' | 'createdAt'>) => void;
   onRemoveMaintenanceBlock: (blockId: string) => void;
+  currentUser: User | null;
   operationsOnly?: boolean;
 }
 
@@ -45,8 +47,10 @@ const MarinaDashboard: React.FC<Props> = ({
   onUpdateReservation,
   onUpdateUser,
   onDeleteUser,
+  onDeleteReservation,
   onAddMaintenanceBlock,
   onRemoveMaintenanceBlock,
+  currentUser,
   operationsOnly = false,
 }) => {
   const [activeTab, setActiveTab] = useState<'OPERATIONS' | 'CLIENTS' | 'FINANCE'>('OPERATIONS');
@@ -599,12 +603,23 @@ const MarinaDashboard: React.FC<Props> = ({
                     <div>
                       {renderReservationLine(res)}
                     </div>
-                    <button
-                      onClick={() => updateStatus(res, JetStatus.NAVIGATING)}
-                      className="bg-teal-600 text-white text-xs font-bold py-2 px-4 rounded-lg hover:bg-teal-700 transition shadow-sm active:scale-95"
-                    >
-                      Navegando
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => updateStatus(res, JetStatus.NAVIGATING)}
+                        className="bg-teal-600 text-white text-xs font-bold py-2 px-4 rounded-lg hover:bg-teal-700 transition shadow-sm active:scale-95"
+                      >
+                        Navegando
+                      </button>
+                      {currentUser?.email === 'admin@marina.com' && (
+                        <button
+                          onClick={() => onDeleteReservation(res.id)}
+                          className="bg-red-600 text-white text-xs font-bold py-2 px-3 rounded-lg hover:bg-red-700 transition shadow-sm active:scale-95"
+                          title="Excluir reserva"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               {reservations.filter(r => r.status === JetStatus.IN_WATER && r.date === selectedDate).length === 0 && (
@@ -628,12 +643,23 @@ const MarinaDashboard: React.FC<Props> = ({
                     <div>
                       {renderReservationLine(res)}
                     </div>
-                    <button
-                      onClick={() => updateStatus(res, JetStatus.RETURNED)}
-                      className="bg-orange-600 text-white text-xs font-bold py-2 px-4 rounded-lg hover:bg-orange-700 transition shadow-sm active:scale-95"
-                    >
-                      Retornou e check-in
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => updateStatus(res, JetStatus.RETURNED)}
+                        className="bg-orange-600 text-white text-xs font-bold py-2 px-4 rounded-lg hover:bg-orange-700 transition shadow-sm active:scale-95"
+                      >
+                        Retornou e check-in
+                      </button>
+                      {currentUser?.email === 'admin@marina.com' && (
+                        <button
+                          onClick={() => onDeleteReservation(res.id)}
+                          className="bg-red-600 text-white text-xs font-bold py-2 px-3 rounded-lg hover:bg-red-700 transition shadow-sm active:scale-95"
+                          title="Excluir reserva"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               {reservations.filter(r => r.status === JetStatus.NAVIGATING && r.date === selectedDate).length === 0 && (
@@ -734,6 +760,20 @@ const MarinaDashboard: React.FC<Props> = ({
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                           </svg>
                           Finalizar Check-in ({photosCount} fotos)
+                        </button>
+                      )}
+
+                      {/* Delete Button for Admin */}
+                      {currentUser?.email === 'admin@marina.com' && (
+                        <button
+                          onClick={() => onDeleteReservation(res.id)}
+                          className="w-full bg-red-600 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-red-700 transition flex items-center justify-center gap-2 active:scale-95"
+                          title="Excluir reserva"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Excluir reserva
                         </button>
                       )}
 
