@@ -234,8 +234,14 @@ export async function login(email: string, password: string, role: 'CLIENT' | 'M
 
             // Verify password
             const storedPassword = localStorage.getItem(`pwd_${email}`);
-            if (storedPassword !== password) {
-                return { user: null, error: 'Senha incorreta' };
+            // Se houver senha armazenada, validar contra ela.
+            // Se não houver, aceitar a senha digitada na primeira entrada e salvar.
+            if (storedPassword) {
+                if (storedPassword !== password) {
+                    return { user: null, error: 'Senha incorreta' };
+                }
+            } else {
+                localStorage.setItem(`pwd_${email}`, password);
             }
 
 

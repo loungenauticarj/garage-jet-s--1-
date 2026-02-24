@@ -23,12 +23,13 @@ const Login: React.FC<Props> = ({ onLogin, onGoToRegister }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (email === 'operacional@marina.com') {
-      onLogin(email, password, 'OPERATIONAL');
-    } else if (email === 'admin@marina.com' || email === 'admin@garagejets.com') {
-      onLogin(email, password, 'MARINA');
+    const normalizedEmail = email.trim().toLowerCase();
+    if (normalizedEmail === 'operacional@marina.com') {
+      onLogin(normalizedEmail, password, 'OPERATIONAL');
+    } else if (normalizedEmail === 'admin@marina.com' || normalizedEmail === 'admin@garagejets.com') {
+      onLogin(normalizedEmail, password, 'MARINA');
     } else {
-      onLogin(email, password, 'CLIENT');
+      onLogin(normalizedEmail, password, 'CLIENT');
     }
   };
 
