@@ -315,6 +315,7 @@ const App: React.FC = () => {
             maintenanceBlocks={maintenanceBlocks}
             onAddReservation={addReservation}
             onDeleteReservation={deleteReservation}
+            onUpdateReservation={updateReservation}
           />
         )}
         {view === 'MARINA' && (
