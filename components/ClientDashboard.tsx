@@ -37,7 +37,7 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
   const handleSubmitRes = (e: React.FormEvent) => {
     e.preventDefault();
     if (user.isBlocked) {
-      alert("USUÁRIO BLOQUEADO, FAVOR ENTRAR EM CONTATO COM ADM");
+      alert("Usuário bloqueado. Favor entrar em contato com o administrador.");
       return;
     }
 
@@ -51,21 +51,21 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
         r.status !== JetStatus.CHECKED_IN
       );
       
-      // Check if there's an active reservation for today or later
-      const hasFutureReservation = activeReservations.some(r => r.date >= today);
+      // Check if there's an active reservation after today
+      const hasFutureReservation = activeReservations.some(r => r.date > today);
       
       if (hasFutureReservation) {
         // If they have a future reservation, they can only book for today
         if (newRes.date !== today) {
-          alert('Você possui um agendamento futuro. Só pode agendar para hoje.');
+          alert('Você possui agendamento em data futura. Novo agendamento permitido apenas para hoje (no dia da reserva atual).');
           return;
         }
       }
       
-      // Check if there's an active reservation for today (or past dates)
-      const hasTodayOrPastReservation = activeReservations.some(r => r.date <= today);
-      if (hasTodayOrPastReservation && newRes.date <= today) {
-        alert('Você já possui um agendamento ativo. Aguarde o check-in para fazer novo agendamento.');
+      // Check if there's an overdue active reservation (before today)
+      const hasPastReservation = activeReservations.some(r => r.date < today);
+      if (hasPastReservation && newRes.date <= today) {
+        alert('Você possui agendamento pendente de dia anterior. Finalize o check-in para liberar novo agendamento.');
         return;
       }
     }
@@ -80,8 +80,8 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
 
       if (conflict) {
         const msg = conflict.userId !== user.id 
-          ? `RESERVADO PARA OUTRO CLIENTE: ${conflict.userName}`
-          : 'Você já possui um agendamento para este dia com este jet.';
+          ? `Reservado para outro cliente: ${conflict.userName}`
+          : 'Já existe um agendamento ativo para este dia com este jet.';
         alert(msg);
         return;
       }
@@ -139,11 +139,11 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
     // Check if cotista has a future reservation
     if (user.ownerType === 'COTISTA') {
       const hasFutureReservation = reservations.some(r => 
-        r.status !== JetStatus.CHECKED_IN && r.date >= today
+        r.status !== JetStatus.CHECKED_IN && r.date > today
       );
       
       if (hasFutureReservation && value !== today) {
-        alert('Você possui um agendamento futuro. Só pode agendar para hoje.');
+        alert('Você possui agendamento em data futura. Novo agendamento permitido apenas para hoje (no dia da reserva atual).');
         return;
       }
     }
@@ -152,12 +152,12 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
 
     if (conflict) {
       if (conflict.userId !== user.id) {
-        alert(`RESERVADO PARA OUTRO CLIENTE: ${conflict.userName}`);
+        alert(`Reservado para outro cliente: ${conflict.userName}`);
         setNewRes({ ...newRes, date: '' });
         return;
       }
 
-      alert('Você já possui um agendamento para este dia com este jet.');
+      alert('Já existe um agendamento ativo para este dia com este jet.');
       setNewRes({ ...newRes, date: value });
       return;
     }
@@ -253,7 +253,7 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
 
                 {currentRes.photos.length > 0 && (
                   <div className="mt-4">
-                    <p className="text-xs font-black text-blue-900 uppercase mb-2">Fotos do Check-in</p>
+                    <p className="text-xs font-black text-blue-900 uppercase mb-2">Fotos do check-in</p>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {currentRes.photos.map((photo, i) => (
                         <div key={i} className="aspect-square overflow-hidden rounded-lg border shadow-sm">
@@ -274,22 +274,22 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
           {!showResForm ? (
             (() => {
               const today = new Date().toLocaleDateString('en-CA');
-              const hasActiveReservationToday = user.ownerType === 'COTISTA' && 
-                reservations.some(r => r.status !== JetStatus.CHECKED_IN && r.date <= today);
+              const hasActivePastReservation = user.ownerType === 'COTISTA' && 
+                reservations.some(r => r.status !== JetStatus.CHECKED_IN && r.date < today);
               
               return (
                 <button
                   onClick={() => setShowResForm(true)}
-                  disabled={hasActiveReservationToday}
-                  title={hasActiveReservationToday ? 'Complete seu agendamento atual antes de fazer um novo' : ''}
+                  disabled={hasActivePastReservation}
+                  title={hasActivePastReservation ? 'Finalize o check-in pendente para liberar novo agendamento' : ''}
                   className={`w-full font-black py-4 rounded-xl shadow-lg transition transform active:scale-95 flex items-center justify-center gap-2 ${
-                    hasActiveReservationToday 
+                    hasActivePastReservation 
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
                       : 'bg-blue-600 text-white hover:bg-blue-700'
                   }`}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-                  {hasActiveReservationToday ? 'AGENDAMENTO ATIVO - AGUARDE CHECK-IN' : 'RESERVAR SAÍDA'}
+                  {hasActivePastReservation ? 'Pendência de agendamento - finalize check-in' : 'Reservar saída'}
                 </button>
               );
             })()
@@ -298,7 +298,7 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
               {/* Formulário à esquerda */}
               <div className="bg-white p-3 rounded-lg shadow-lg border border-blue-600 animate-in slide-in-from-bottom-4 duration-300 flex-1 max-w-sm">
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-black text-base text-blue-900">Agendar Saída</h4>
+                  <h4 className="font-black text-base text-blue-900">Agendar saída</h4>
                   <button
                     type="button"
                     onClick={() => setShowResForm(false)}
@@ -326,6 +326,11 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                             .join(', ')}
                         </span>
                       )}
+                    </p>
+                  )}
+                  {user.ownerType === 'COTISTA' && (
+                    <p className="mt-1 text-[10px] text-blue-700 font-semibold">
+                      ✅ No dia do seu agendamento atual, já é possível fazer novo agendamento.
                     </p>
                   )}
                 </div>
@@ -375,9 +380,9 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                             cells.push(day);
                           }
 
-                          // Check if cotista has a future reservation
+                          // Check if cotista has a reservation after today
                           const hasFutureReservation = user.ownerType === 'COTISTA' && 
-                            reservations.some(r => r.status !== JetStatus.CHECKED_IN && r.date >= today);
+                            reservations.some(r => r.status !== JetStatus.CHECKED_IN && r.date > today);
 
                           return cells.map((day, index) => {
                             if (!day) {
@@ -406,7 +411,7 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                                 className={`${baseClass} ${selectedClass}`}
                                 onClick={() => handleDateChange(dateStr)}
                                 disabled={isReserved || isDisabledForFutureRes}
-                                title={isReserved ? 'RESERVADO' : isDisabledForFutureRes ? 'Só pode agendar para hoje' : ''}
+                                title={isReserved ? 'Reservado' : isDisabledForFutureRes ? 'Novo agendamento permitido apenas para hoje' : ''}
                               >
                                 {day}
                               </button>
@@ -422,7 +427,7 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                       {/* Lista de dias reservados */}
                       {user.ownerType === 'COTISTA' && reservedDates.size > 0 && (
                         <div className="mt-3 p-2 bg-red-50 rounded border border-red-100 text-[10px] text-gray-700">
-                          <p className="font-bold text-red-700 mb-1">📌 Datas Bloqueadas:</p>
+                          <p className="font-bold text-red-700 mb-1">📌 Datas bloqueadas:</p>
                           <div className="space-y-1">
                             {Array.from(reservedDates)
                               .sort()
@@ -452,16 +457,16 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Roteiro</label>
-                    <input type="text" required placeholder="Ex: Ilhas Cagarras" className="w-full p-2.5 border bg-gray-50 rounded-md font-medium text-sm" value={newRes.route} onChange={(e) => setNewRes({ ...newRes, route: e.target.value })} />
+                    <input type="text" required placeholder="Ex.: Ilhas Cagarras" className="w-full p-2.5 border bg-gray-50 rounded-md font-medium text-sm" value={newRes.route} onChange={(e) => setNewRes({ ...newRes, route: e.target.value })} />
                   </div>
                   <div className="flex gap-2">
                     <button type="button" onClick={() => setShowResForm(false)} className="flex-1 bg-gray-100 text-gray-600 hover:bg-gray-200 p-2.5 rounded-md font-bold text-sm transition flex items-center justify-center gap-1">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
                       </svg>
-                      VOLTAR
+                      Voltar
                     </button>
-                    <button type="submit" className="flex-[2] bg-blue-600 text-white hover:bg-blue-700 p-2.5 rounded-md font-bold shadow-md text-sm transition">CONFIRMAR</button>
+                    <button type="submit" className="flex-[2] bg-blue-600 text-white hover:bg-blue-700 p-2.5 rounded-md font-bold shadow-md text-sm transition">Confirmar</button>
                   </div>
                 </form>
               </div>

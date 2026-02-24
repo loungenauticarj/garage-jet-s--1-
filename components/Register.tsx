@@ -55,7 +55,7 @@ const Register: React.FC<Props> = ({ onRegister, onBack }) => {
     e.preventDefault();
     const cpfDigits = formData.cpf.replace(/\D/g, '');
     if (cpfDigits.length > 0 && !isValidCPF(cpfDigits)) {
-      setCpfError('CPF invalido. Verifique os digitos.');
+      setCpfError('CPF inválido. Verifique os dígitos.');
       return;
     }
 
@@ -97,7 +97,7 @@ const Register: React.FC<Props> = ({ onRegister, onBack }) => {
           <div className="space-y-4">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-1.5 h-4 bg-blue-600 rounded-full"></div>
-              <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Informações Pessoais</h3>
+              <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Informações pessoais</h3>
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1 ml-1 uppercase">Nome Completo</label>
@@ -105,7 +105,7 @@ const Register: React.FC<Props> = ({ onRegister, onBack }) => {
                 name="name"
                 required
                 className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-medium transition-all"
-                placeholder="Iniciais em Maiúscula"
+                placeholder="Digite seu nome completo"
                 value={formData.name}
                 onChange={handleChange}
               />
@@ -145,7 +145,7 @@ const Register: React.FC<Props> = ({ onRegister, onBack }) => {
                 name="address"
                 required
                 className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-medium transition-all"
-                placeholder="Rua, Número, Bairro, Cidade"
+                placeholder="Rua, número, bairro, cidade"
                 value={formData.address}
                 onChange={handleChange}
               />
@@ -195,13 +195,13 @@ const Register: React.FC<Props> = ({ onRegister, onBack }) => {
               onClick={onBack}
               className="flex-1 bg-gray-100 text-gray-600 font-bold py-4 rounded-2xl hover:bg-gray-200 transition-all active:scale-95"
             >
-              VOLTAR
+              Voltar
             </button>
             <button
               type="submit"
               className="flex-[2] bg-blue-600 text-white font-black py-4 rounded-2xl hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 active:scale-95 uppercase tracking-wider"
             >
-              CADASTRAR
+              Cadastrar
             </button>
           </div>
         </form>

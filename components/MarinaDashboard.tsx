@@ -137,7 +137,7 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
     const remainingSlots = 10 - currentPhotos.length;
     
     if (remainingSlots <= 0) {
-      alert('Você já atingiu o limite de 10 fotos para este check-in!');
+      alert('Você atingiu o limite de 10 fotos para este check-in.');
       return;
     }
 
@@ -174,7 +174,7 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
     const photos = checkInPhotos[res.id] || [];
     
     if (photos.length === 0) {
-      alert('Por favor, adicione pelo menos uma foto para o check-in!');
+      alert('Adicione pelo menos uma foto para concluir o check-in.');
       return;
     }
 
@@ -189,7 +189,7 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
       [res.id]: []
     }));
 
-    alert('Check-in finalizado e fotos enviadas ao cliente!');
+    alert('Check-in finalizado e fotos enviadas ao cliente.');
   };
 
   const startEditingFinance = (user: User) => {
@@ -272,7 +272,7 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
       // Update user object
       onUpdateUser({ ...user, password: defaultPassword });
 
-      alert(`Senha de ${user.name} resetada para "${defaultPassword}" com sucesso!`);
+      alert(`Senha de ${user.name} redefinida para "${defaultPassword}" com sucesso.`);
     }
   };
 
@@ -633,7 +633,7 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
 
       {activeTab === 'CLIENTS' && (
         <div className="space-y-4 animate-in fade-in duration-500">
-          <h3 className="text-lg font-bold text-blue-900">Cadastro do Cliente</h3>
+          <h3 className="text-lg font-bold text-blue-900">Cadastro do cliente</h3>
           <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
             <label className="block text-xs font-bold text-gray-500 mb-1">Pesquisar cliente</label>
             <input
@@ -788,14 +788,14 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
                           <button
                             onClick={() => startEditingRegistration(u)}
                             className="p-2 bg-gray-50 text-blue-600 rounded-lg border border-blue-100 hover:bg-blue-50 transition shadow-sm active:scale-95"
-                            title="Alterar Cadastro"
+                            title="Alterar cadastro"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                           </button>
                           <button
                             onClick={() => onDeleteUser(u.id)}
                             className="p-2 bg-red-50 text-red-600 rounded-lg border border-red-100 hover:bg-red-100 transition shadow-sm active:scale-95"
-                            title="Excluir Cadastro"
+                            title="Excluir cadastro"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                           </button>
@@ -805,14 +805,14 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
                       <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Access Data */}
                         <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
-                          <p className="text-xs font-black text-gray-500 uppercase tracking-widest mb-2 italic">Acesso do Cliente</p>
+                          <p className="text-xs font-black text-gray-500 uppercase tracking-widest mb-2 italic">Acesso do cliente</p>
                           <p className="text-sm text-gray-700"><strong>Login:</strong> {u.email}</p>
                           <div className="flex items-center gap-2">
                             <p className="text-sm text-gray-700"><strong>Senha:</strong> {u.password || '---'}</p>
                             <button
                               onClick={() => resetPassword(u)}
                               className="p-1.5 bg-yellow-50 text-yellow-600 rounded-lg border border-yellow-200 hover:bg-yellow-100 transition shadow-sm active:scale-95"
-                              title="Resetar senha para 1234"
+                              title="Redefinir senha para 1234"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -823,7 +823,7 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
 
                         {/* Jet-Ski Data */}
                         <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
-                          <p className="text-xs font-black text-blue-800 uppercase tracking-widest mb-2">Dados da Embarcação</p>
+                          <p className="text-xs font-black text-blue-800 uppercase tracking-widest mb-2">Dados da embarcação</p>
                           {u.ownerType === 'COTISTA' ? (
                             <>
                               <p className="text-sm text-gray-700"><strong>Nome do Jet:</strong> {u.jetName || '---'}</p>
@@ -968,7 +968,7 @@ const MarinaDashboard: React.FC<Props> = ({ reservations, users, onUpdateReserva
       {activeTab === 'FINANCE' && (
         <div className="space-y-4 animate-in fade-in duration-500">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <h3 className="text-lg font-bold text-blue-900">Gestão de Mensalidades</h3>
+            <h3 className="text-lg font-bold text-blue-900">Gestão de mensalidades</h3>
             <div className="relative w-full md:w-64">
               <input
                 type="text"
