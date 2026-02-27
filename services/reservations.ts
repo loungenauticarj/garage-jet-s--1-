@@ -173,12 +173,53 @@ export async function updateReservation(
             }
         }
 
-        const { data, error } = await supabase
-            .from('reservations')
-            .update(updateData)
-            .eq('id', reservationId)
-            .select()
-            .single();
+        const runUpdate = async (payload: any) => {
+            return await supabase
+                .from('reservations')
+                .update(payload)
+                .eq('id', reservationId)
+                .select()
+                .single();
+        };
+
+        let { data, error } = await runUpdate(updateData);
+
+        if (error) {
+            const message = String((error as any)?.message || '');
+
+            if (message.includes('client_photos') && updates.clientPhotos !== undefined) {
+                return {
+                    reservation: null,
+                    error: 'A coluna client_photos não existe no banco. Execute o script MIGRATION_HISTORY_AND_CLEAN_FUEL.sql no Supabase e tente novamente.'
+                };
+            }
+
+            const fallbackData = { ...updateData };
+            let hasFallback = false;
+
+            if (message.includes('in_water_at')) {
+                delete fallbackData.in_water_at;
+                hasFallback = true;
+            }
+            if (message.includes('navigating_at')) {
+                delete fallbackData.navigating_at;
+                hasFallback = true;
+            }
+            if (message.includes('returned_at')) {
+                delete fallbackData.returned_at;
+                hasFallback = true;
+            }
+            if (message.includes('checked_in_at')) {
+                delete fallbackData.checked_in_at;
+                hasFallback = true;
+            }
+
+            if (hasFallback) {
+                const retry = await runUpdate(fallbackData);
+                data = retry.data;
+                error = retry.error;
+            }
+        }
 
         if (error) {
             console.error('Error updating reservation:', error);

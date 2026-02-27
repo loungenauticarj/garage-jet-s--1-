@@ -66,6 +66,8 @@ const MarinaDashboard: React.FC<Props> = ({
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState<string[]>([]);
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [showRegistrationPassword, setShowRegistrationPassword] = useState(false);
+  const [visibleClientPasswords, setVisibleClientPasswords] = useState<Record<string, boolean>>({});
   const [showMaintenanceForm, setShowMaintenanceForm] = useState(false);
   const [maintenanceDate, setMaintenanceDate] = useState<string>('');
   const [maintenanceJetName, setMaintenanceJetName] = useState<string>('');
@@ -263,7 +265,13 @@ const MarinaDashboard: React.FC<Props> = ({
 
   const startEditingRegistration = (user: User) => {
     setEditingRegistrationId(user.id);
-    setRegForm({ ...user });
+    setShowRegistrationPassword(false);
+
+    const storedPassword = localStorage.getItem(`pwd_${user.email}`);
+    setRegForm({
+      ...user,
+      password: storedPassword || user.password || '',
+    });
   };
 
   const handleRegFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -329,6 +337,19 @@ const MarinaDashboard: React.FC<Props> = ({
 
       alert(`Senha de ${user.name} redefinida para "${defaultPassword}" com sucesso.`);
     }
+  };
+
+  const setResetPasswordInRegistration = () => {
+    setRegForm(prev => ({ ...prev, password: '1234' }));
+    setShowRegistrationPassword(true);
+    alert('Senha no cadastro alterada para "1234". Clique em "Salvar Alterações" para confirmar.');
+  };
+
+  const toggleClientPasswordVisibility = (userId: string) => {
+    setVisibleClientPasswords(prev => ({
+      ...prev,
+      [userId]: !prev[userId],
+    }));
   };
 
 
@@ -850,7 +871,31 @@ const MarinaDashboard: React.FC<Props> = ({
                         </div>
                         <div>
                           <label className="block text-xs font-bold text-gray-500 mb-1">Senha</label>
-                          <input name="password" type="text" className="w-full p-2 border rounded" value={regForm.password} onChange={handleRegFormChange} />
+                          <div className="flex gap-2">
+                            <input
+                              name="password"
+                              type={showRegistrationPassword ? 'text' : 'password'}
+                              className="w-full p-2 border rounded"
+                              value={regForm.password}
+                              onChange={handleRegFormChange}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowRegistrationPassword(prev => !prev)}
+                              className="px-3 py-2 bg-gray-100 text-gray-700 rounded border text-xs font-bold hover:bg-gray-200 transition"
+                              title={showRegistrationPassword ? 'Ocultar senha' : 'Ver senha'}
+                            >
+                              {showRegistrationPassword ? 'Ocultar' : 'Ver'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={setResetPasswordInRegistration}
+                              className="px-3 py-2 bg-yellow-100 text-yellow-800 rounded border border-yellow-300 text-xs font-bold hover:bg-yellow-200 transition"
+                              title="Definir senha para 1234"
+                            >
+                              Resetar 1234
+                            </button>
+                          </div>
                         </div>
 
                         {/* Vessel/Embarcação Section */}
@@ -984,7 +1029,22 @@ const MarinaDashboard: React.FC<Props> = ({
                           <p className="text-xs font-black text-gray-500 uppercase tracking-widest mb-2 italic">Acesso do cliente</p>
                           <p className="text-sm text-gray-700"><strong>Login:</strong> {u.email}</p>
                           <div className="flex items-center gap-2">
-                            <p className="text-sm text-gray-700"><strong>Senha:</strong> {u.password || '---'}</p>
+                            <p className="text-sm text-gray-700">
+                              <strong>Senha:</strong>{' '}
+                              {visibleClientPasswords[u.id]
+                                ? (localStorage.getItem(`pwd_${u.email}`) || u.password || '---')
+                                : '••••••••'}
+                            </p>
+                            <button
+                              onClick={() => toggleClientPasswordVisibility(u.id)}
+                              className="p-1.5 bg-gray-100 text-gray-700 rounded-lg border border-gray-200 hover:bg-gray-200 transition shadow-sm active:scale-95"
+                              title={visibleClientPasswords[u.id] ? 'Ocultar senha' : 'Ver senha'}
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                            </button>
                             <button
                               onClick={() => resetPassword(u)}
                               className="p-1.5 bg-yellow-50 text-yellow-600 rounded-lg border border-yellow-200 hover:bg-yellow-100 transition shadow-sm active:scale-95"
