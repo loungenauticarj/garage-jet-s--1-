@@ -59,10 +59,6 @@ export interface Reservation {
   status: JetStatus;
   photos: string[];
   clientPhotos?: string[]; // Fotos tiradas pelo cliente durante o passeio
-  // Dados de abastecimento
-  fuelReceiptPhoto?: string; // Foto da nota fiscal do posto
-  fuelPixName?: string; // Nome do PIX para abastecimento
-  fuelPixNumber?: string; // Número do PIX para abastecimento
   // Timestamps para histórico
   createdAt?: string; // Quando a reserva foi criada
   inWaterAt?: string; // Quando indo para água

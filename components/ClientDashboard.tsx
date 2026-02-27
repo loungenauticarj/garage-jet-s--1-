@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState } from 'react';
 import { JetStatus, MaintenanceBlock, Reservation, StatusLabels, User } from '../types';
 import { generateId } from '../utils';
 
@@ -23,7 +23,7 @@ interface Props {
 
 const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations, maintenanceBlocks, onAddReservation, onDeleteReservation, onUpdateReservation }) => {
   const [showResForm, setShowResForm] = useState(false);
-  const [activeTab, setActiveTab] = useState<'STATUS' | 'HISTORY' | 'NOTIFICATIONS' | 'CALENDAR'>('STATUS');
+  const [activeTab, setActiveTab] = useState<'STATUS' | 'HISTORY'>('STATUS');
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
@@ -35,47 +35,6 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
   });
   const [clientPhotos, setClientPhotos] = useState<string[]>([]);
   const [showPhotoUpload, setShowPhotoUpload] = useState(false);
-  const [showFuelForm, setShowFuelForm] = useState(false);
-  const [fuelReceiptPhoto, setFuelReceiptPhoto] = useState<string>('');
-  const [fuelPixName, setFuelPixName] = useState<string>('');
-  const [fuelPixNumber, setFuelPixNumber] = useState<string>('');
-  const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
-  const [resetPasswordDefault, setResetPasswordDefault] = useState<string>('');
-  const [newPasswordInput, setNewPasswordInput] = useState<string>('');
-  const previousPasswordRef = useRef<string>(user.password);
-
-  // Monitorar mudanças na senha (quando admin reseta)
-  useEffect(() => {
-    const storedPassword = localStorage.getItem(`pwd_${user.email}`);
-    
-    if (storedPassword && storedPassword !== previousPasswordRef.current && storedPassword !== user.password) {
-      previousPasswordRef.current = storedPassword;
-      setResetPasswordDefault(storedPassword);
-      setNewPasswordInput(storedPassword);
-      setShowPasswordResetModal(true);
-    }
-  }, [user.email, user.password]);
-
-  const handlePasswordResetConfirm = () => {
-    if (!newPasswordInput || newPasswordInput.trim() === '') {
-      alert('Digite a nova senha.');
-      return;
-    }
-
-    // Atualizar no localStorage
-    localStorage.setItem(`pwd_${user.email}`, newPasswordInput);
-    
-    // Fechar modal
-    setShowPasswordResetModal(false);
-    setNewPasswordInput('');
-    
-    // Alert de sucesso
-    alert(`✓ Senha atualizada com sucesso!\n\nVocê será deslogado para fazer login com a nova senha.`);
-    
-    // Logout para fazer login novamente
-    localStorage.removeItem('currentUser');
-    window.location.reload();
-  };
 
   const normalizeJetName = (value?: string) => (value || '').trim().toLowerCase();
   const getTodayDate = () => new Date().toLocaleDateString('en-CA');
@@ -177,53 +136,42 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
     alert('Sua reserva foi enviada!');
   };
 
-  const sortedReservations = [...reservations].sort((a, b) => b.date.localeCompare(a.date));
+  const normalizedUserJetName = useMemo(() => normalizeJetName(user.jetName), [user.jetName]);
+
+  const activeReservations = useMemo(
+    () => reservations.filter(r => r.status !== JetStatus.CHECKED_IN),
+    [reservations]
+  );
+
+  const activeReservationDates = useMemo(
+    () => activeReservations.map(r => r.date),
+    [activeReservations]
+  );
+
+  const sortedReservations = useMemo(
+    () => [...reservations].sort((a, b) => b.date.localeCompare(a.date)),
+    [reservations]
+  );
+
   const currentRes = sortedReservations[0];
-  const fuelNotifications = sortedReservations.filter(r => !!r.fuelReceiptPhoto);
-  const notificationStorageKey = `fuel_notifications_seen_${user.id}`;
-  const [seenFuelNotificationIds, setSeenFuelNotificationIds] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem(notificationStorageKey);
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-  const unreadFuelNotifications = fuelNotifications.filter(r => !seenFuelNotificationIds.includes(r.id));
-
-  useEffect(() => {
-    localStorage.setItem(notificationStorageKey, JSON.stringify(seenFuelNotificationIds));
-  }, [notificationStorageKey, seenFuelNotificationIds]);
-
-  useEffect(() => {
-    if (activeTab !== 'NOTIFICATIONS') return;
-
-    const unseenIds = fuelNotifications
-      .map(notification => notification.id)
-      .filter(notificationId => !seenFuelNotificationIds.includes(notificationId));
-
-    if (unseenIds.length === 0) return;
-
-    setSeenFuelNotificationIds(prev => Array.from(new Set([...prev, ...unseenIds])));
-  }, [activeTab, fuelNotifications, seenFuelNotificationIds]);
 
   const findJetDateConflict = (date: string, excludeId?: string) => {
-    if (!user.jetName) return null;
+    if (!normalizedUserJetName) return null;
 
     return allReservations.find(r =>
       r.date === date &&
       r.status !== JetStatus.CHECKED_IN &&
-      normalizeJetName(r.jetName) === normalizeJetName(user.jetName) &&
+      normalizeJetName(r.jetName) === normalizedUserJetName &&
       r.id !== excludeId
     );
   };
 
   const hasMaintenanceBlockForDate = (date: string) => {
-    if (user.ownerType !== 'COTISTA' || !user.jetName) return false;
+    if (user.ownerType !== 'COTISTA' || !normalizedUserJetName) return false;
 
     return maintenanceBlocks.some(block =>
       block.date === date &&
-      normalizeJetName(block.jetName) === normalizeJetName(user.jetName)
+      normalizeJetName(block.jetName) === normalizedUserJetName
     );
   };
 
@@ -233,31 +181,22 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
     return `${year}-${padNumber(month + 1)}-${padNumber(day)}`;
   };
 
-  const getReservationTimestamp = (reservation: Reservation) => {
-    const timeValue = reservation.time && reservation.time.length >= 5 ? reservation.time : '00:00';
-    const [hour, minute] = timeValue.split(':');
-    return new Date(
-      Number(reservation.date.slice(0, 4)),
-      Number(reservation.date.slice(5, 7)) - 1,
-      Number(reservation.date.slice(8, 10)),
-      Number(hour),
-      Number(minute)
-    ).getTime();
-  };
-
-  const reservedDates = new Set(
-    user.jetName
-      ? [
-          ...allReservations
-            .filter(r => r.status !== JetStatus.CHECKED_IN && normalizeJetName(r.jetName) === normalizeJetName(user.jetName))
-            .map(r => r.date),
-          ...(user.ownerType === 'COTISTA'
-            ? maintenanceBlocks
-                .filter(block => normalizeJetName(block.jetName) === normalizeJetName(user.jetName))
-                .map(block => block.date)
-            : []),
-        ]
-      : []
+  const reservedDates = useMemo(
+    () => new Set(
+      normalizedUserJetName
+        ? [
+            ...allReservations
+              .filter(r => r.status !== JetStatus.CHECKED_IN && normalizeJetName(r.jetName) === normalizedUserJetName)
+              .map(r => r.date),
+            ...(user.ownerType === 'COTISTA'
+              ? maintenanceBlocks
+                  .filter(block => normalizeJetName(block.jetName) === normalizedUserJetName)
+                  .map(block => block.date)
+              : []),
+          ]
+        : []
+    ),
+    [allReservations, maintenanceBlocks, normalizedUserJetName, user.ownerType]
   );
 
   const handleDateChange = (value: string) => {
@@ -310,14 +249,58 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
     }
 
     const filesToProcess = Array.from(files).slice(0, remainingSlots);
-    
-    filesToProcess.forEach(file => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setClientPhotos(prev => [...prev, reader.result as string]);
-      };
-      reader.readAsDataURL(file);
-    });
+    const maxDimension = 1280;
+    const quality = 0.75;
+
+    const processImage = (file: File): Promise<string> => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onload = () => {
+          const img = new Image();
+
+          img.onload = () => {
+            let targetWidth = img.width;
+            let targetHeight = img.height;
+
+            if (img.width > img.height && img.width > maxDimension) {
+              targetWidth = maxDimension;
+              targetHeight = Math.round((img.height * maxDimension) / img.width);
+            } else if (img.height >= img.width && img.height > maxDimension) {
+              targetHeight = maxDimension;
+              targetWidth = Math.round((img.width * maxDimension) / img.height);
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+
+            const context = canvas.getContext('2d');
+            if (!context) {
+              reject(new Error('Falha ao processar imagem.'));
+              return;
+            }
+
+            context.drawImage(img, 0, 0, targetWidth, targetHeight);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+          };
+
+          img.onerror = () => reject(new Error('Falha ao carregar imagem.'));
+          img.src = reader.result as string;
+        };
+
+        reader.onerror = () => reject(new Error('Falha ao ler arquivo de imagem.'));
+        reader.readAsDataURL(file);
+      });
+    };
+
+    Promise.all(filesToProcess.map(processImage))
+      .then((processedPhotos) => {
+        setClientPhotos(prev => [...prev, ...processedPhotos]);
+      })
+      .catch(() => {
+        alert('Não foi possível processar uma ou mais imagens. Tente novamente.');
+      });
 
     e.target.value = '';
   };
@@ -343,156 +326,8 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
     alert('Fotos adicionadas com sucesso!');
   };
 
-  const handleFuelReceiptCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setFuelReceiptPhoto(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
-  };
-
-  const saveFuelData = (currentRes: Reservation) => {
-    if (!fuelReceiptPhoto) {
-      alert('Adicione a foto da nota fiscal.');
-      return;
-    }
-
-    if (!fuelPixName || !fuelPixNumber) {
-      alert('Preencha o nome e número do PIX.');
-      return;
-    }
-
-    // Atualizar reserva atual
-    const updatedRes: Reservation = {
-      ...currentRes,
-      fuelReceiptPhoto,
-      fuelPixName,
-      fuelPixNumber
-    };
-
-    onUpdateReservation(updatedRes);
-
-    // Buscar reserva anterior do mesmo jet (inclui mesmo dia, pelo horário)
-    const currentResTimestamp = getReservationTimestamp(currentRes);
-    const previousReservation = allReservations
-      .filter(r => 
-        r.id !== currentRes.id &&
-        normalizeJetName(r.jetName) === normalizeJetName(currentRes.jetName) &&
-        getReservationTimestamp(r) < currentResTimestamp &&
-        (r.status === JetStatus.RETURNED || r.status === JetStatus.CHECKED_IN)
-      )
-      .sort((a, b) => getReservationTimestamp(b) - getReservationTimestamp(a))[0];
-
-    // Se encontrou reserva anterior, enviar dados de abastecimento
-    if (previousReservation) {
-      const updatedPreviousRes: Reservation = {
-        ...previousReservation,
-        fuelReceiptPhoto,
-        fuelPixName,
-        fuelPixNumber
-      };
-      onUpdateReservation(updatedPreviousRes);
-    }
-
-    setFuelReceiptPhoto('');
-    setFuelPixName('');
-    setFuelPixNumber('');
-    setShowFuelForm(false);
-    
-    if (previousReservation) {
-      alert(`Dados salvos! Informações enviadas para ${previousReservation.userName} (agendamento anterior).`);
-    } else {
-      alert('Dados de abastecimento salvos com sucesso!');
-    }
-  };
-
   return (
     <div className="space-y-4 pb-20">
-      {/* Modal de Reset de Senha */}
-      {showPasswordResetModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border-2 border-blue-500 max-w-sm w-full animate-in slide-in-from-bottom duration-300">
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 rounded-t-xl">
-              <h3 className="text-lg font-black flex items-center gap-2">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-                Atualize sua senha
-              </h3>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div>
-                <p className="text-sm text-gray-700 mb-3">
-                  ✓ Sua senha foi redefinida pelo administrador!
-                </p>
-                <p className="text-xs text-gray-600 mb-1 font-bold">Senha provisória:</p>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-                  <p className="text-sm font-black text-blue-700 tracking-wide">{resetPasswordDefault}</p>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-black text-gray-600 uppercase mb-2">Digite sua nova senha</label>
-                <input
-                  type="password"
-                  value={newPasswordInput}
-                  onChange={(e) => setNewPasswordInput(e.target.value)}
-                  placeholder="Digite a senha que deseja usar"
-                  className="w-full px-4 py-3 border-2 border-blue-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      handlePasswordResetConfirm();
-                    }
-                  }}
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Você pode manter a senha provisória ou criar uma nova
-                </p>
-              </div>
-
-              <div className="flex gap-2 pt-4">
-                <button
-                  onClick={() => {
-                    setShowPasswordResetModal(false);
-                    setNewPasswordInput('');
-                  }}
-                  className="flex-1 px-4 py-2.5 rounded-lg border-2 border-gray-300 text-gray-700 font-bold hover:bg-gray-50 transition"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={() => {
-                    setNewPasswordInput(resetPasswordDefault);
-                    // Delay para atualizar state antes de confirmar
-                    setTimeout(() => {
-                      localStorage.setItem(`pwd_${user.email}`, resetPasswordDefault);
-                      alert('✓ Senha confirmada! Você será deslogado para fazer login.');
-                      localStorage.removeItem('currentUser');
-                      window.location.reload();
-                    }, 50);
-                  }}
-                  className="flex-1 px-4 py-2.5 rounded-lg border-2 border-blue-500 text-blue-600 font-bold hover:bg-blue-50 transition"
-                >
-                  Usar essa
-                </button>
-                <button
-                  onClick={handlePasswordResetConfirm}
-                  disabled={!newPasswordInput}
-                  className="flex-1 px-4 py-2.5 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  ✓ Confirmar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Perfil do Cliente */}
       <div className="bg-white p-4 rounded-2xl shadow-md border border-blue-50 flex justify-between items-center bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-50 via-white to-white">
         <div>
@@ -561,17 +396,6 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
         >
           Histórico
         </button>
-        <button
-          onClick={() => setActiveTab('NOTIFICATIONS')}
-          className={`flex-1 py-2 text-xs font-bold rounded-md transition flex items-center justify-center gap-1 ${activeTab === 'NOTIFICATIONS' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500'}`}
-        >
-          Notificações
-          {unreadFuelNotifications.length > 0 && (
-            <span className={`min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-black flex items-center justify-center ${activeTab === 'NOTIFICATIONS' ? 'bg-white text-blue-700' : 'bg-blue-600 text-white'}`}>
-              {unreadFuelNotifications.length}
-            </span>
-          )}
-        </button>
       </div>
 
       {activeTab === 'STATUS' ? (
@@ -620,14 +444,6 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                           📸 {showPhotoUpload ? 'Fechar' : 'Registrar fotos'}
                         </button>
                       )}
-                      {currentRes.status === JetStatus.NAVIGATING && (
-                        <button
-                          onClick={() => setShowFuelForm(!showFuelForm)}
-                          className="text-[10px] font-bold px-3 py-1 rounded shadow-sm bg-orange-600 text-white hover:bg-orange-700 transition"
-                        >
-                          ⛽ {showFuelForm ? 'Fechar' : 'Registrar abastecimento'}
-                        </button>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -674,7 +490,7 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                         <div className="grid grid-cols-3 gap-2 mb-3">
                           {clientPhotos.map((photo, idx) => (
                             <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border-2 border-teal-300 shadow-sm">
-                              <img src={photo} alt={`Foto ${idx + 1}`} className="w-full h-full object-cover" />
+                              <img src={photo} alt={`Foto ${idx + 1}`} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                               <button
                                 onClick={() => removeClientPhoto(idx)}
                                 className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold hover:bg-red-700 shadow-lg"
@@ -695,130 +511,15 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                   </div>
                 )}
 
-                {/* Seção de registro de abastecimento */}
-                {showFuelForm && currentRes.status === JetStatus.NAVIGATING && (
-                  <div className="bg-gradient-to-r from-orange-50 to-amber-50 p-4 rounded-xl border-2 border-orange-200 animate-in slide-in-from-top duration-300">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-sm font-bold text-orange-900 flex items-center gap-2">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                        </svg>
-                        Dados de Abastecimento
-                      </h4>
-                    </div>
-                    
-                    <p className="text-xs text-orange-800 mb-3">
-                      Registre a nota fiscal e os dados do PIX para reembolso do combustível.
-                    </p>
-
-                    {/* Foto da nota fiscal */}
-                    <div className="mb-3">
-                      <label className="block text-xs font-bold text-orange-900 mb-2">Nota Fiscal do Posto</label>
-                      {!fuelReceiptPhoto ? (
-                        <label className="block w-full">
-                          <div className="border-2 border-dashed border-orange-300 rounded-lg p-4 text-center cursor-pointer hover:bg-orange-100 transition bg-white">
-                            <svg className="w-8 h-8 mx-auto text-orange-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                            <p className="text-sm font-bold text-orange-700">Fotografar nota fiscal</p>
-                            <p className="text-xs text-orange-600 mt-1">Toque para abrir a câmera</p>
-                          </div>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            capture="environment"
-                            onChange={handleFuelReceiptCapture}
-                            className="hidden"
-                          />
-                        </label>
-                      ) : (
-                        <div className="relative rounded-lg overflow-hidden border-2 border-orange-300 shadow-sm">
-                          <img src={fuelReceiptPhoto} alt="Nota fiscal" className="w-full h-auto" />
-                          <button
-                            onClick={() => setFuelReceiptPhoto('')}
-                            className="absolute top-2 right-2 bg-red-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold hover:bg-red-700 shadow-lg"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Campos de PIX */}
-                    <div className="space-y-3 mb-3">
-                      <div>
-                        <label className="block text-xs font-bold text-orange-900 mb-1">Nome do PIX</label>
-                        <input
-                          type="text"
-                          placeholder="Digite o nome cadastrado no PIX"
-                          value={fuelPixName}
-                          onChange={(e) => setFuelPixName(e.target.value)}
-                          className="w-full px-3 py-2 border-2 border-orange-300 rounded-lg text-sm font-medium bg-white focus:ring-2 focus:ring-orange-500 outline-none"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-orange-900 mb-1">Número do PIX (CPF/Telefone/Email)</label>
-                        <input
-                          type="text"
-                          placeholder="Digite a chave PIX"
-                          value={fuelPixNumber}
-                          onChange={(e) => setFuelPixNumber(e.target.value)}
-                          className="w-full px-3 py-2 border-2 border-orange-300 rounded-lg text-sm font-medium bg-white focus:ring-2 focus:ring-orange-500 outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => saveFuelData(currentRes)}
-                      disabled={!fuelReceiptPhoto || !fuelPixName || !fuelPixNumber}
-                      className={`w-full font-bold py-2.5 rounded-lg transition shadow-md ${
-                        fuelReceiptPhoto && fuelPixName && fuelPixNumber
-                          ? 'bg-orange-600 text-white hover:bg-orange-700'
-                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      }`}
-                    >
-                      ✓ Salvar dados de abastecimento
-                    </button>
-                  </div>
-                )}
-
                 {currentRes.clientPhotos && currentRes.clientPhotos.length > 0 && (
                   <div className="mt-4">
                     <p className="text-xs font-black text-teal-900 uppercase mb-2">📸 Fotos do passeio</p>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {currentRes.clientPhotos.map((photo, i) => (
                         <div key={i} className="aspect-square overflow-hidden rounded-lg border shadow-sm">
-                          <img src={photo} className="w-full h-full object-cover" />
+                          <img src={photo} alt={`Foto do passeio ${i + 1}`} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                         </div>
                       ))}
-                    </div>
-                  </div>
-                )}
-
-                {currentRes.fuelReceiptPhoto && (
-                  <div className="mt-4 bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-300 rounded-lg p-3 shadow-sm">
-                    <div className="flex items-center gap-2 mb-2">
-                      <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                      </svg>
-                      <p className="text-xs font-black text-orange-900 uppercase">⛽ Dados de Abastecimento Recebidos</p>
-                    </div>
-                    <div className="bg-green-100 border border-green-300 rounded p-2 mb-2">
-                      <p className="text-xs font-bold text-green-800">✓ Nota fiscal do próximo usuário recebida para reembolso</p>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="aspect-video overflow-hidden rounded-lg border-2 border-orange-400 shadow-sm bg-white">
-                        <img src={currentRes.fuelReceiptPhoto} alt="Nota fiscal" className="w-full h-full object-contain" />
-                      </div>
-                      <div className="bg-white rounded-lg p-2.5 border-2 border-orange-300 shadow-sm">
-                        <p className="text-xs font-bold text-gray-700 mb-1">Dados para reembolso:</p>
-                        <div className="space-y-1">
-                          <p className="text-xs text-gray-700"><strong>Nome PIX:</strong> {currentRes.fuelPixName}</p>
-                          <p className="text-xs text-gray-700 break-all"><strong>Chave PIX:</strong> {currentRes.fuelPixNumber}</p>
-                        </div>
-                      </div>
                     </div>
                   </div>
                 )}
@@ -829,7 +530,7 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {currentRes.photos.map((photo, i) => (
                         <div key={i} className="aspect-square overflow-hidden rounded-lg border shadow-sm">
-                          <img src={photo} className="w-full h-full object-cover" />
+                          <img src={photo} alt={`Foto de check-in ${i + 1}`} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                         </div>
                       ))}
                     </div>
@@ -851,12 +552,12 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                 ? !user.jetName || user.jetName.trim() === ''
                 : !user.jetModel || user.jetModel.trim() === '' || !user.jetYear || user.jetYear.trim() === '';
               const hasFutureReservation = user.ownerType === 'COTISTA' &&
-                hasFutureReservationBlock(reservations, today, hasUnlockedCurrentDay);
+                hasFutureReservationBlock(activeReservations, today, hasUnlockedCurrentDay);
               const hasActivePastReservation = user.ownerType === 'COTISTA' && 
-                reservations.some(r => r.status !== JetStatus.CHECKED_IN && r.date < today);
+                activeReservations.some(r => r.date < today);
               const hasActiveReservationTodayBeforeUnlock = user.ownerType === 'COTISTA' &&
                 !hasUnlockedCurrentDay &&
-                reservations.some(r => r.status !== JetStatus.CHECKED_IN && r.date === today);
+                activeReservations.some(r => r.date === today);
               const isReservationBlocked = isCadastroIncompleto || hasActivePastReservation || hasActiveReservationTodayBeforeUnlock || hasFutureReservation;
               
               return (
@@ -917,13 +618,10 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                   <p className="mb-1"><strong>👤 Tipo:</strong> {user.ownerType === 'COTISTA' ? 'Cotista (Compartilhado)' : 'Único'}</p>
                   {user.ownerType === 'COTISTA' && (
                     <p className="text-gray-600">
-                      <strong>📅 Agendamentos:</strong> {reservations.filter(r => r.status !== JetStatus.CHECKED_IN).length} ativo(s)
-                      {reservations.filter(r => r.status !== JetStatus.CHECKED_IN).length > 0 && (
+                      <strong>📅 Agendamentos:</strong> {activeReservations.length} ativo(s)
+                      {activeReservations.length > 0 && (
                         <span className="block mt-1 text-gray-700">
-                          {reservations
-                            .filter(r => r.status !== JetStatus.CHECKED_IN)
-                            .map(r => r.date.split('-').reverse().join('/'))
-                            .join(', ')}
+                          {activeReservationDates.map(date => date.split('-').reverse().join('/')).join(', ')}
                         </span>
                       )}
                     </p>
@@ -1035,7 +733,7 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                               .map(date => {
                                 const maintenanceBlock = maintenanceBlocks.find(block =>
                                   block.date === date &&
-                                  normalizeJetName(block.jetName) === normalizeJetName(user.jetName)
+                                  normalizeJetName(block.jetName) === normalizedUserJetName
                                 );
                                 return (
                                   <span key={date} className="block">
@@ -1080,7 +778,7 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
             </div>
           )}
         </div>
-      ) : activeTab === 'HISTORY' ? (
+      ) : (
         <div className="space-y-3 animate-in fade-in duration-500">
           <h3 className="text-base font-bold text-gray-800 mb-1">Histórico</h3>
           {reservations.length > 0 ? (
@@ -1117,25 +815,9 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                       <div className="grid grid-cols-4 gap-1.5">
                         {res.clientPhotos.map((photo, i) => (
                           <div key={i} className="aspect-square rounded-md overflow-hidden border border-teal-200">
-                            <img src={photo} className="w-full h-full object-cover" />
+                            <img src={photo} alt={`Histórico passeio ${i + 1}`} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                           </div>
                         ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {res.fuelReceiptPhoto && (
-                    <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-300 rounded p-2">
-                      <div className="flex items-center gap-1 mb-1">
-                        <p className="text-[9px] font-bold text-orange-800 uppercase">⛽ Reembolso</p>
-                        <span className="text-[8px] bg-green-200 text-green-800 px-1 py-0.5 rounded font-bold">Recebido</span>
-                      </div>
-                      <div className="aspect-video rounded overflow-hidden border border-orange-400 mb-1.5 bg-white">
-                        <img src={res.fuelReceiptPhoto} alt="Nota fiscal" className="w-full h-full object-contain" />
-                      </div>
-                      <div className="text-[9px] text-gray-700 space-y-0.5 bg-white rounded p-1.5 border border-orange-200">
-                        <p><strong>PIX:</strong> {res.fuelPixName}</p>
-                        <p className="break-all"><strong>Chave:</strong> {res.fuelPixNumber}</p>
                       </div>
                     </div>
                   )}
@@ -1146,7 +828,7 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
                       <div className="grid grid-cols-4 gap-1.5">
                         {res.photos.map((photo, i) => (
                           <div key={i} className="aspect-square rounded-md overflow-hidden border">
-                            <img src={photo} className="w-full h-full object-cover" />
+                            <img src={photo} alt={`Histórico check-in ${i + 1}`} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                           </div>
                         ))}
                       </div>
@@ -1162,38 +844,6 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
           ) : (
             <div className="py-12 text-center text-sm text-gray-400 bg-white rounded-2xl border border-dashed">
               Vazio.
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-3 animate-in fade-in duration-500">
-          <h3 className="text-base font-bold text-gray-800 mb-1">Notificações</h3>
-          {fuelNotifications.length > 0 ? (
-            fuelNotifications
-              .map((res) => (
-                <div key={`notify-${res.id}`} className="bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-300 rounded-xl p-3 shadow-sm">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-black text-orange-900 uppercase">⛽ Reembolso recebido</p>
-                    <span className="text-[10px] font-bold text-orange-700">
-                      {res.date.split('-').reverse().join('/')} • {res.time}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-700 mb-2">
-                    O usuário do próximo agendamento enviou a nota de abastecimento e dados de PIX para este agendamento.
-                  </p>
-                  <div className="aspect-video overflow-hidden rounded-lg border-2 border-orange-400 shadow-sm bg-white mb-2">
-                    <img src={res.fuelReceiptPhoto} alt="Nota fiscal" className="w-full h-full object-contain" />
-                  </div>
-                  <div className="bg-white rounded-lg p-2.5 border-2 border-orange-300 shadow-sm">
-                    <p className="text-xs font-bold text-gray-700 mb-1">Dados para reembolso:</p>
-                    <p className="text-xs text-gray-700"><strong>Nome PIX:</strong> {res.fuelPixName}</p>
-                    <p className="text-xs text-gray-700 break-all"><strong>Chave PIX:</strong> {res.fuelPixNumber}</p>
-                  </div>
-                </div>
-              ))
-          ) : (
-            <div className="py-12 text-center text-sm text-gray-400 bg-white rounded-2xl border border-dashed">
-              Nenhuma notificação de abastecimento recebida.
             </div>
           )}
         </div>
