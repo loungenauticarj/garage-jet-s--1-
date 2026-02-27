@@ -35,6 +35,7 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
   });
   const [clientPhotos, setClientPhotos] = useState<string[]>([]);
   const [showPhotoUpload, setShowPhotoUpload] = useState(false);
+  const [historyVisibleCount, setHistoryVisibleCount] = useState(8);
 
   const normalizeJetName = (value?: string) => (value || '').trim().toLowerCase();
   const getTodayDate = () => new Date().toLocaleDateString('en-CA');
@@ -151,6 +152,11 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
   const sortedReservations = useMemo(
     () => [...reservations].sort((a, b) => b.date.localeCompare(a.date)),
     [reservations]
+  );
+
+  const visibleHistoryReservations = useMemo(
+    () => sortedReservations.slice(0, historyVisibleCount),
+    [sortedReservations, historyVisibleCount]
   );
 
   const currentRes = sortedReservations[0];
@@ -782,7 +788,7 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
         <div className="space-y-3 animate-in fade-in duration-500">
           <h3 className="text-base font-bold text-gray-800 mb-1">Histórico</h3>
           {reservations.length > 0 ? (
-            sortedReservations.map((res) => (
+            visibleHistoryReservations.map((res) => (
               <div key={res.id} className="bg-white rounded-xl shadow-sm border overflow-hidden">
                 <div className="p-3 bg-gray-50 border-b flex justify-between items-center">
                   <div>
@@ -845,6 +851,24 @@ const ClientDashboard: React.FC<Props> = ({ user, reservations, allReservations,
             <div className="py-12 text-center text-sm text-gray-400 bg-white rounded-2xl border border-dashed">
               Vazio.
             </div>
+          )}
+
+          {sortedReservations.length > historyVisibleCount && (
+            <button
+              onClick={() => setHistoryVisibleCount((prev) => prev + 8)}
+              className="w-full py-2.5 rounded-lg bg-blue-50 text-blue-700 font-bold text-sm border border-blue-200 hover:bg-blue-100 transition"
+            >
+              Ver mais histórico
+            </button>
+          )}
+
+          {historyVisibleCount > 8 && (
+            <button
+              onClick={() => setHistoryVisibleCount(8)}
+              className="w-full py-2.5 rounded-lg bg-gray-50 text-gray-700 font-bold text-sm border border-gray-200 hover:bg-gray-100 transition"
+            >
+              Mostrar menos
+            </button>
           )}
         </div>
       )}

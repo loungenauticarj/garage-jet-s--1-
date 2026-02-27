@@ -1,5 +1,5 @@
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { JetStatus, MaintenanceBlock, Reservation, StatusLabels, User } from '../types';
 import { formatCEP, formatPhone, toTitleCase } from '../utils';
 
@@ -57,6 +57,12 @@ const MarinaDashboard: React.FC<Props> = ({
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editingRegistrationId, setEditingRegistrationId] = useState<string | null>(null);
   const [financeForm, setFinanceForm] = useState({ dueDate: 10, value: 0 });
+  const [inDockVisibleCount, setInDockVisibleCount] = useState(10);
+  const [inWaterVisibleCount, setInWaterVisibleCount] = useState(10);
+  const [navigatingVisibleCount, setNavigatingVisibleCount] = useState(10);
+  const [returnedVisibleCount, setReturnedVisibleCount] = useState(10);
+  const [clientsVisibleCount, setClientsVisibleCount] = useState(20);
+  const [financeVisibleCount, setFinanceVisibleCount] = useState(20);
   const [financeSearch, setFinanceSearch] = useState('');
   const [clientSearch, setClientSearch] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -68,6 +74,7 @@ const MarinaDashboard: React.FC<Props> = ({
   const [photoIndex, setPhotoIndex] = useState(0);
   const [showRegistrationPassword, setShowRegistrationPassword] = useState(false);
   const [visibleClientPasswords, setVisibleClientPasswords] = useState<Record<string, boolean>>({});
+  const [expandedUsageByUser, setExpandedUsageByUser] = useState<Record<string, boolean>>({});
   const [showMaintenanceForm, setShowMaintenanceForm] = useState(false);
   const [maintenanceDate, setMaintenanceDate] = useState<string>('');
   const [maintenanceJetName, setMaintenanceJetName] = useState<string>('');
@@ -84,14 +91,17 @@ const MarinaDashboard: React.FC<Props> = ({
   });
   const [newJetName, setNewJetName] = useState('');
 
-  const cotistaJetNames = Array.from(
-    new Set(
-      users
-        .filter(user => user.ownerType === 'COTISTA' && Boolean(user.jetName))
-        .map(user => (user.jetName || '').trim())
-        .filter(Boolean)
-    )
-  ).sort((a, b) => (a as string).localeCompare(b as string));
+  const cotistaJetNames = useMemo(
+    () => Array.from(
+      new Set(
+        users
+          .filter(user => user.ownerType === 'COTISTA' && Boolean(user.jetName))
+          .map(user => (user.jetName || '').trim())
+          .filter(Boolean)
+      )
+    ).sort((a, b) => (a as string).localeCompare(b as string)),
+    [users]
+  );
 
   useEffect(() => {
     if (operationsOnly && activeTab !== 'OPERATIONS') {
@@ -200,15 +210,52 @@ const MarinaDashboard: React.FC<Props> = ({
 
     const filesToProcess = Array.from(files as FileList).slice(0, remainingSlots);
 
-    const readers = filesToProcess.map((file: File) => {
-      return new Promise<string>((resolve) => {
+    const maxDimension = 1280;
+    const quality = 0.75;
+
+    const processImage = (file: File): Promise<string> => {
+      return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = (ev) => resolve(ev.target?.result as string);
+
+        reader.onload = () => {
+          const img = new Image();
+
+          img.onload = () => {
+            let targetWidth = img.width;
+            let targetHeight = img.height;
+
+            if (img.width > img.height && img.width > maxDimension) {
+              targetWidth = maxDimension;
+              targetHeight = Math.round((img.height * maxDimension) / img.width);
+            } else if (img.height >= img.width && img.height > maxDimension) {
+              targetHeight = maxDimension;
+              targetWidth = Math.round((img.width * maxDimension) / img.height);
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+
+            const context = canvas.getContext('2d');
+            if (!context) {
+              reject(new Error('Falha ao processar imagem.'));
+              return;
+            }
+
+            context.drawImage(img, 0, 0, targetWidth, targetHeight);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+          };
+
+          img.onerror = () => reject(new Error('Falha ao carregar imagem.'));
+          img.src = reader.result as string;
+        };
+
+        reader.onerror = () => reject(new Error('Falha ao ler arquivo de imagem.'));
         reader.readAsDataURL(file);
       });
-    });
+    };
 
-    Promise.all(readers).then(photoUrls => {
+    Promise.all(filesToProcess.map(processImage)).then(photoUrls => {
       const updatedPhotos = [...currentPhotos, ...photoUrls];
       setCheckInPhotos(prev => ({
         ...prev,
@@ -217,6 +264,8 @@ const MarinaDashboard: React.FC<Props> = ({
 
       // Reset input
       e.target.value = '';
+    }).catch(() => {
+      alert('Não foi possível processar uma ou mais imagens. Tente novamente.');
     });
   };
 
@@ -352,6 +401,13 @@ const MarinaDashboard: React.FC<Props> = ({
     }));
   };
 
+  const toggleUsageHistory = (userId: string) => {
+    setExpandedUsageByUser(prev => ({
+      ...prev,
+      [userId]: !prev[userId],
+    }));
+  };
+
 
 
 
@@ -412,7 +468,7 @@ const MarinaDashboard: React.FC<Props> = ({
     );
   };
 
-  const filteredUsers = users
+  const filteredUsers = useMemo(() => users
     .filter(u => u.name.toLowerCase().includes(clientSearch.toLowerCase()))
     .sort((a, b) => {
       const aKey = a.ownerType === 'COTISTA'
@@ -422,12 +478,80 @@ const MarinaDashboard: React.FC<Props> = ({
         ? `0-${(b.jetName || '').toLowerCase()}-${b.name.toLowerCase()}`
         : `1-${b.name.toLowerCase()}`;
       return aKey.localeCompare(bKey);
-    });
+    }), [users, clientSearch]);
+
+  const visibleClientUsers = useMemo(
+    () => filteredUsers.slice(0, clientsVisibleCount),
+    [filteredUsers, clientsVisibleCount]
+  );
 
   // Filtered users for finance tab
-  const filteredFinanceUsers = users
+  const filteredFinanceUsers = useMemo(() => users
     .filter(u => u.name.toLowerCase().includes(financeSearch.toLowerCase()))
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => a.name.localeCompare(b.name)), [users, financeSearch]);
+
+  const visibleFinanceUsers = useMemo(
+    () => filteredFinanceUsers.slice(0, financeVisibleCount),
+    [filteredFinanceUsers, financeVisibleCount]
+  );
+
+  const reservationsBySelectedDate = useMemo(
+    () => reservations.filter(r => r.date === selectedDate),
+    [reservations, selectedDate]
+  );
+
+  const inDockReservations = useMemo(
+    () => reservationsBySelectedDate.filter(r => r.status === JetStatus.IN_DOCK).sort(sortByName),
+    [reservationsBySelectedDate]
+  );
+
+  const visibleInDockReservations = useMemo(
+    () => inDockReservations.slice(0, inDockVisibleCount),
+    [inDockReservations, inDockVisibleCount]
+  );
+
+  const inWaterReservations = useMemo(
+    () => reservationsBySelectedDate.filter(r => r.status === JetStatus.IN_WATER).sort(sortByName),
+    [reservationsBySelectedDate]
+  );
+
+  const visibleInWaterReservations = useMemo(
+    () => inWaterReservations.slice(0, inWaterVisibleCount),
+    [inWaterReservations, inWaterVisibleCount]
+  );
+
+  const navigatingReservations = useMemo(
+    () => reservationsBySelectedDate.filter(r => r.status === JetStatus.NAVIGATING).sort(sortByName),
+    [reservationsBySelectedDate]
+  );
+
+  const visibleNavigatingReservations = useMemo(
+    () => navigatingReservations.slice(0, navigatingVisibleCount),
+    [navigatingReservations, navigatingVisibleCount]
+  );
+
+  const returnedReservations = useMemo(
+    () => reservationsBySelectedDate.filter(r => r.status === JetStatus.RETURNED).sort(sortByName),
+    [reservationsBySelectedDate]
+  );
+
+  const visibleReturnedReservations = useMemo(
+    () => returnedReservations.slice(0, returnedVisibleCount),
+    [returnedReservations, returnedVisibleCount]
+  );
+
+  const reservationsByUserId = useMemo(() => {
+    const grouped: Record<string, Reservation[]> = {};
+
+    reservations.forEach((reservation) => {
+      if (!grouped[reservation.userId]) {
+        grouped[reservation.userId] = [];
+      }
+      grouped[reservation.userId].push(reservation);
+    });
+
+    return grouped;
+  }, [reservations]);
 
   return (
     <div className="space-y-6 pb-20">
@@ -587,9 +711,7 @@ const MarinaDashboard: React.FC<Props> = ({
               <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider">Reserva do dia</h3>
             </div>
             <div className="flex flex-col gap-2">
-              {reservations
-                .filter(r => r.status === JetStatus.IN_DOCK && r.date === selectedDate)
-                .sort(sortByName)
+              {visibleInDockReservations
                 .map(res => (
                   <div key={res.id} className="bg-white p-4 rounded-xl shadow-sm border flex justify-between items-center group hover:border-blue-300 transition">
                     <div>
@@ -603,8 +725,26 @@ const MarinaDashboard: React.FC<Props> = ({
                     </button>
                   </div>
                 ))}
-              {reservations.filter(r => r.status === JetStatus.IN_DOCK && r.date === selectedDate).length === 0 && (
+              {inDockReservations.length === 0 && (
                 <p className="text-xs text-gray-400 italic px-2">Nenhuma reserva para {new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR')}.</p>
+              )}
+
+              {inDockReservations.length > inDockVisibleCount && (
+                <button
+                  onClick={() => setInDockVisibleCount(prev => prev + 10)}
+                  className="mt-1 py-2 rounded-lg bg-blue-50 text-blue-700 font-bold text-xs border border-blue-200 hover:bg-blue-100 transition"
+                >
+                  Ver mais ({inDockReservations.length - inDockVisibleCount} restantes)
+                </button>
+              )}
+
+              {inDockVisibleCount > 10 && (
+                <button
+                  onClick={() => setInDockVisibleCount(10)}
+                  className="py-2 rounded-lg bg-gray-50 text-gray-700 font-bold text-xs border border-gray-200 hover:bg-gray-100 transition"
+                >
+                  Mostrar menos
+                </button>
               )}
             </div>
           </section>
@@ -616,9 +756,7 @@ const MarinaDashboard: React.FC<Props> = ({
               <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider">Na Água</h3>
             </div>
             <div className="flex flex-col gap-2">
-              {reservations
-                .filter(r => r.status === JetStatus.IN_WATER && r.date === selectedDate)
-                .sort(sortByName)
+              {visibleInWaterReservations
                 .map(res => (
                   <div key={res.id} className="bg-white p-4 rounded-xl shadow-sm border flex justify-between items-center">
                     <div>
@@ -643,8 +781,26 @@ const MarinaDashboard: React.FC<Props> = ({
                     </div>
                   </div>
                 ))}
-              {reservations.filter(r => r.status === JetStatus.IN_WATER && r.date === selectedDate).length === 0 && (
+              {inWaterReservations.length === 0 && (
                 <p className="text-xs text-gray-400 italic px-2">Vazio.</p>
+              )}
+
+              {inWaterReservations.length > inWaterVisibleCount && (
+                <button
+                  onClick={() => setInWaterVisibleCount(prev => prev + 10)}
+                  className="mt-1 py-2 rounded-lg bg-teal-50 text-teal-700 font-bold text-xs border border-teal-200 hover:bg-teal-100 transition"
+                >
+                  Ver mais ({inWaterReservations.length - inWaterVisibleCount} restantes)
+                </button>
+              )}
+
+              {inWaterVisibleCount > 10 && (
+                <button
+                  onClick={() => setInWaterVisibleCount(10)}
+                  className="py-2 rounded-lg bg-gray-50 text-gray-700 font-bold text-xs border border-gray-200 hover:bg-gray-100 transition"
+                >
+                  Mostrar menos
+                </button>
               )}
             </div>
           </section>
@@ -656,9 +812,7 @@ const MarinaDashboard: React.FC<Props> = ({
               <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider">Navegando</h3>
             </div>
             <div className="flex flex-col gap-2">
-              {reservations
-                .filter(r => r.status === JetStatus.NAVIGATING && r.date === selectedDate)
-                .sort(sortByName)
+              {visibleNavigatingReservations
                 .map(res => (
                   <div key={res.id} className="bg-white p-4 rounded-xl shadow-sm border flex justify-between items-center">
                     <div>
@@ -683,8 +837,26 @@ const MarinaDashboard: React.FC<Props> = ({
                     </div>
                   </div>
                 ))}
-              {reservations.filter(r => r.status === JetStatus.NAVIGATING && r.date === selectedDate).length === 0 && (
+              {navigatingReservations.length === 0 && (
                 <p className="text-xs text-gray-400 italic px-2">Vazio.</p>
+              )}
+
+              {navigatingReservations.length > navigatingVisibleCount && (
+                <button
+                  onClick={() => setNavigatingVisibleCount(prev => prev + 10)}
+                  className="mt-1 py-2 rounded-lg bg-orange-50 text-orange-700 font-bold text-xs border border-orange-200 hover:bg-orange-100 transition"
+                >
+                  Ver mais ({navigatingReservations.length - navigatingVisibleCount} restantes)
+                </button>
+              )}
+
+              {navigatingVisibleCount > 10 && (
+                <button
+                  onClick={() => setNavigatingVisibleCount(10)}
+                  className="py-2 rounded-lg bg-gray-50 text-gray-700 font-bold text-xs border border-gray-200 hover:bg-gray-100 transition"
+                >
+                  Mostrar menos
+                </button>
               )}
             </div>
           </section>
@@ -696,9 +868,7 @@ const MarinaDashboard: React.FC<Props> = ({
               <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider">Retornou e check-in</h3>
             </div>
             <div className="flex flex-col gap-2">
-              {reservations
-                .filter(r => r.status === JetStatus.RETURNED && r.date === selectedDate)
-                .sort(sortByName)
+              {visibleReturnedReservations
                 .map(res => {
                   const photos = checkInPhotos[res.id] || [];
                   const photosCount = photos.length;
@@ -721,6 +891,8 @@ const MarinaDashboard: React.FC<Props> = ({
                               <img
                                 src={photo}
                                 alt={`Foto ${idx + 1}`}
+                                loading="lazy"
+                                decoding="async"
                                 className="w-full h-20 object-cover rounded-lg shadow-sm border border-gray-200"
                               />
                               <button
@@ -820,8 +992,26 @@ const MarinaDashboard: React.FC<Props> = ({
                     </div>
                   );
                 })}
-              {reservations.filter(r => r.status === JetStatus.RETURNED && r.date === selectedDate).length === 0 && (
+              {returnedReservations.length === 0 && (
                 <p className="text-xs text-gray-400 italic px-2">Vazio.</p>
+              )}
+
+              {returnedReservations.length > returnedVisibleCount && (
+                <button
+                  onClick={() => setReturnedVisibleCount(prev => prev + 10)}
+                  className="mt-1 py-2 rounded-lg bg-green-50 text-green-700 font-bold text-xs border border-green-200 hover:bg-green-100 transition"
+                >
+                  Ver mais ({returnedReservations.length - returnedVisibleCount} restantes)
+                </button>
+              )}
+
+              {returnedVisibleCount > 10 && (
+                <button
+                  onClick={() => setReturnedVisibleCount(10)}
+                  className="py-2 rounded-lg bg-gray-50 text-gray-700 font-bold text-xs border border-gray-200 hover:bg-gray-100 transition"
+                >
+                  Mostrar menos
+                </button>
               )}
             </div>
           </section>
@@ -847,7 +1037,7 @@ const MarinaDashboard: React.FC<Props> = ({
                 Nenhum cliente encontrado.
               </div>
             ) : (
-              filteredUsers.map(u => (
+              visibleClientUsers.map(u => (
                 <div key={u.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 relative">
                   {editingRegistrationId === u.id ? (
                     /* Edit Form Mode */
@@ -1079,97 +1269,115 @@ const MarinaDashboard: React.FC<Props> = ({
 
                         {/* Histórico de Reservas */}
                         {(() => {
-                          const userReservations = reservations.filter(r => r.userId === u.id).slice(0, 5);
+                          const allUserReservations = reservationsByUserId[u.id] || [];
+                          const userReservations = allUserReservations.slice(0, 5);
                           if (userReservations.length === 0) return null;
-                          
+
+                          const isExpanded = !!expandedUsageByUser[u.id];
+
                           return (
                             <div className="p-3 bg-amber-50 rounded-xl border border-amber-100">
-                              <p className="text-xs font-black text-amber-800 uppercase tracking-widest mb-2">📜 Histórico de Uso</p>
-                              <div className="space-y-3 max-h-96 overflow-y-auto">
-                                {userReservations.map(res => (
-                                  <div key={res.id} className="bg-white p-3 rounded-lg border border-amber-100 text-xs">
-                                    <div className="flex justify-between items-start mb-2">
-                                      <p className="font-bold text-gray-800">📅 {new Date(res.date).toLocaleDateString('pt-BR')}</p>
-                                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                                        res.status === 'CHECKED_IN' ? 'bg-green-100 text-green-700' :
-                                        res.status === 'RETURNED' ? 'bg-yellow-100 text-yellow-700' :
-                                        res.status === 'NAVIGATING' ? 'bg-blue-100 text-blue-700' :
-                                        res.status === 'IN_WATER' ? 'bg-cyan-100 text-cyan-700' :
-                                        'bg-gray-100 text-gray-700'
-                                      }`}>
-                                        {res.status === 'CHECKED_IN' ? '✅ Finalizado' :
-                                         res.status === 'RETURNED' ? '🔄 Retornou' :
-                                         res.status === 'NAVIGATING' ? '⛵ Navegando' :
-                                         res.status === 'IN_WATER' ? '🌊 Na água' :
-                                         '🏁 Na vaga'}
-                                      </span>
-                                    </div>
-                                    
-                                    <div className="space-y-1 text-gray-600">
-                                      {res.createdAt && (
-                                        <p>• <strong>Reservado:</strong> {new Date(res.createdAt).toLocaleString('pt-BR', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'})}</p>
-                                      )}
-                                      {res.inWaterAt && (
-                                        <p>• <strong>Indo p/ água:</strong> {new Date(res.inWaterAt).toLocaleString('pt-BR', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'})}</p>
-                                      )}
-                                      {res.navigatingAt && (
-                                        <p>• <strong>Navegando:</strong> {new Date(res.navigatingAt).toLocaleString('pt-BR', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'})}</p>
-                                      )}
-                                      {res.returnedAt && (
-                                        <p>• <strong>Retornou:</strong> {new Date(res.returnedAt).toLocaleString('pt-BR', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'})}</p>
-                                      )}
-                                      {res.checkedInAt && (
-                                        <p>• <strong>Check-in:</strong> {new Date(res.checkedInAt).toLocaleString('pt-BR', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'})}</p>
-                                      )}
-                                    </div>
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-xs font-black text-amber-800 uppercase tracking-widest">📜 Histórico de Uso</p>
+                                <button
+                                  onClick={() => toggleUsageHistory(u.id)}
+                                  className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-white border border-amber-200 text-amber-800 hover:bg-amber-100 transition"
+                                >
+                                  {isExpanded ? 'Ocultar' : `Ver (${allUserReservations.length})`}
+                                </button>
+                              </div>
 
-                                    {res.photos && res.photos.length > 0 && (
-                                      <div className="mt-2 pt-2 border-t border-gray-100">
-                                        <p className="font-semibold text-gray-700 mb-1">📸 Fotos ({res.photos.length})</p>
-                                        <div className="grid grid-cols-4 gap-1">
-                                          {res.photos.slice(0, 4).map((photo, idx) => (
-                                            <button
-                                              key={idx}
-                                              onClick={() => {
-                                                setSelectedPhotos(res.photos);
-                                                setPhotoIndex(idx);
-                                                setPhotoModalOpen(true);
-                                              }}
-                                              className="w-full h-12 rounded border border-gray-200 cursor-pointer hover:scale-105 transition overflow-hidden group relative"
-                                              title="Clique para ampliar"
-                                            >
-                                              <img
-                                                src={photo}
-                                                alt={`Foto ${idx + 1}`}
-                                                className="w-full h-full object-cover group-hover:opacity-75 transition"
-                                              />
-                                              <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition">
-                                                <span className="text-white text-lg opacity-0 group-hover:opacity-100 transition">🔍</span>
-                                              </div>
-                                            </button>
-                                          ))}
+                              {isExpanded && (
+                                <>
+                                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                                    {userReservations.map(res => (
+                                      <div key={res.id} className="bg-white p-3 rounded-lg border border-amber-100 text-xs">
+                                        <div className="flex justify-between items-start mb-2">
+                                          <p className="font-bold text-gray-800">📅 {new Date(res.date).toLocaleDateString('pt-BR')}</p>
+                                          <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                                            res.status === 'CHECKED_IN' ? 'bg-green-100 text-green-700' :
+                                            res.status === 'RETURNED' ? 'bg-yellow-100 text-yellow-700' :
+                                            res.status === 'NAVIGATING' ? 'bg-blue-100 text-blue-700' :
+                                            res.status === 'IN_WATER' ? 'bg-cyan-100 text-cyan-700' :
+                                            'bg-gray-100 text-gray-700'
+                                          }`}>
+                                            {res.status === 'CHECKED_IN' ? '✅ Finalizado' :
+                                             res.status === 'RETURNED' ? '🔄 Retornou' :
+                                             res.status === 'NAVIGATING' ? '⛵ Navegando' :
+                                             res.status === 'IN_WATER' ? '🌊 Na água' :
+                                             '🏁 Na vaga'}
+                                          </span>
                                         </div>
-                                        {res.photos.length > 4 && (
-                                          <button
-                                            onClick={() => {
-                                              setSelectedPhotos(res.photos);
-                                              setPhotoIndex(4);
-                                              setPhotoModalOpen(true);
-                                            }}
-                                            className="text-xs text-blue-600 hover:text-blue-700 font-bold mt-1 cursor-pointer transition"
-                                          >
-                                            + Ver todas as {res.photos.length} fotos
-                                          </button>
+                                        
+                                        <div className="space-y-1 text-gray-600">
+                                          {res.createdAt && (
+                                            <p>• <strong>Reservado:</strong> {new Date(res.createdAt).toLocaleString('pt-BR', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'})}</p>
+                                          )}
+                                          {res.inWaterAt && (
+                                            <p>• <strong>Indo p/ água:</strong> {new Date(res.inWaterAt).toLocaleString('pt-BR', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'})}</p>
+                                          )}
+                                          {res.navigatingAt && (
+                                            <p>• <strong>Navegando:</strong> {new Date(res.navigatingAt).toLocaleString('pt-BR', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'})}</p>
+                                          )}
+                                          {res.returnedAt && (
+                                            <p>• <strong>Retornou:</strong> {new Date(res.returnedAt).toLocaleString('pt-BR', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'})}</p>
+                                          )}
+                                          {res.checkedInAt && (
+                                            <p>• <strong>Check-in:</strong> {new Date(res.checkedInAt).toLocaleString('pt-BR', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'})}</p>
+                                          )}
+                                        </div>
+
+                                        {res.photos && res.photos.length > 0 && (
+                                          <div className="mt-2 pt-2 border-t border-gray-100">
+                                            <p className="font-semibold text-gray-700 mb-1">📸 Fotos ({res.photos.length})</p>
+                                            <div className="grid grid-cols-4 gap-1">
+                                              {res.photos.slice(0, 4).map((photo, idx) => (
+                                                <button
+                                                  key={idx}
+                                                  onClick={() => {
+                                                    setSelectedPhotos(res.photos);
+                                                    setPhotoIndex(idx);
+                                                    setPhotoModalOpen(true);
+                                                  }}
+                                                  className="w-full h-12 rounded border border-gray-200 cursor-pointer hover:scale-105 transition overflow-hidden group relative"
+                                                  title="Clique para ampliar"
+                                                >
+                                                  <img
+                                                    src={photo}
+                                                    alt={`Foto ${idx + 1}`}
+                                                    loading="lazy"
+                                                    decoding="async"
+                                                    className="w-full h-full object-cover group-hover:opacity-75 transition"
+                                                  />
+                                                  <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition">
+                                                    <span className="text-white text-lg opacity-0 group-hover:opacity-100 transition">🔍</span>
+                                                  </div>
+                                                </button>
+                                              ))}
+                                            </div>
+                                            {res.photos.length > 4 && (
+                                              <button
+                                                onClick={() => {
+                                                  setSelectedPhotos(res.photos);
+                                                  setPhotoIndex(4);
+                                                  setPhotoModalOpen(true);
+                                                }}
+                                                className="text-xs text-blue-600 hover:text-blue-700 font-bold mt-1 cursor-pointer transition"
+                                              >
+                                                + Ver todas as {res.photos.length} fotos
+                                              </button>
+                                            )}
+                                          </div>
                                         )}
                                       </div>
-                                    )}
+                                    ))}
                                   </div>
-                                ))}
-                              </div>
-                              {reservations.filter(r => r.userId === u.id).length > 5 && (
-                                <p className="text-xs text-gray-500 text-center mt-2">
-                                  Mostrando últimas 5 de {reservations.filter(r => r.userId === u.id).length} reservas
-                                </p>
+                                  {allUserReservations.length > 5 && (
+                                    <p className="text-xs text-gray-500 text-center mt-2">
+                                      Mostrando últimas 5 de {allUserReservations.length} reservas
+                                    </p>
+                                  )}
+                                </>
                               )}
                             </div>
                           );
@@ -1196,6 +1404,24 @@ const MarinaDashboard: React.FC<Props> = ({
                   )}
                 </div>
               ))
+            )}
+
+            {filteredUsers.length > clientsVisibleCount && (
+              <button
+                onClick={() => setClientsVisibleCount((prev) => prev + 20)}
+                className="w-full py-2.5 rounded-lg bg-blue-50 text-blue-700 font-bold text-sm border border-blue-200 hover:bg-blue-100 transition"
+              >
+                Ver mais clientes
+              </button>
+            )}
+
+            {clientsVisibleCount > 20 && (
+              <button
+                onClick={() => setClientsVisibleCount(20)}
+                className="w-full py-2.5 rounded-lg bg-gray-50 text-gray-700 font-bold text-sm border border-gray-200 hover:bg-gray-100 transition"
+              >
+                Mostrar menos
+              </button>
             )}
           </div>
         </div>
@@ -1228,7 +1454,7 @@ const MarinaDashboard: React.FC<Props> = ({
               </thead>
               <tbody className="divide-y">
                 {filteredFinanceUsers.length > 0 ? (
-                  filteredFinanceUsers.map(u => (
+                  visibleFinanceUsers.map(u => (
                     <tr key={u.id} className="hover:bg-gray-50 transition">
                       <td className="p-4 font-semibold text-gray-900">{u.name}</td>
                       <td className="p-4 text-sm text-gray-600">
@@ -1298,6 +1524,24 @@ const MarinaDashboard: React.FC<Props> = ({
               </tbody>
             </table>
           </div>
+
+          {filteredFinanceUsers.length > financeVisibleCount && (
+            <button
+              onClick={() => setFinanceVisibleCount((prev) => prev + 20)}
+              className="w-full py-2.5 rounded-lg bg-blue-50 text-blue-700 font-bold text-sm border border-blue-200 hover:bg-blue-100 transition"
+            >
+              Ver mais no financeiro
+            </button>
+          )}
+
+          {financeVisibleCount > 20 && (
+            <button
+              onClick={() => setFinanceVisibleCount(20)}
+              className="w-full py-2.5 rounded-lg bg-gray-50 text-gray-700 font-bold text-sm border border-gray-200 hover:bg-gray-100 transition"
+            >
+              Mostrar menos
+            </button>
+          )}
         </div>
       )}
 

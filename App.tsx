@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import ClientDashboard from './components/ClientDashboard';
 import Login from './components/Login';
 import MarinaDashboard from './components/MarinaDashboard';
@@ -49,6 +49,7 @@ const App: React.FC = () => {
     }
   });
   const [loading, setLoading] = useState(true);
+  const isRefreshingRef = useRef(false);
 
   // Load current user on mount
   useEffect(() => {
@@ -64,16 +65,23 @@ const App: React.FC = () => {
     loadUser();
   }, []);
 
-  // Auto-refresh data every 3 seconds
+  // Auto-refresh data with throttling and tab visibility awareness
   useEffect(() => {
     let autoRefreshDisabled = false;
     
     const interval = setInterval(async () => {
       const user = authService.getCurrentUser();
-      if (user && !autoRefreshDisabled) {
+      if (!user || autoRefreshDisabled) return;
+      if (document.hidden) return;
+      if (isRefreshingRef.current) return;
+
+      isRefreshingRef.current = true;
+      try {
         await loadData(user);
+      } finally {
+        isRefreshingRef.current = false;
       }
-    }, 3000);
+    }, 10000);
 
     // Store reference to disable function in window for use in deleteUser
     (window as any).__disableAutoRefresh = () => {
@@ -88,7 +96,14 @@ const App: React.FC = () => {
       const user = authService.getCurrentUser();
       if (user) {
         console.log('[App] Forçando recarga de dados...');
-        await loadData(user);
+        if (!isRefreshingRef.current) {
+          isRefreshingRef.current = true;
+          try {
+            await loadData(user);
+          } finally {
+            isRefreshingRef.current = false;
+          }
+        }
         console.log('[App] Recarga de dados concluída');
       }
     };
@@ -145,18 +160,23 @@ const App: React.FC = () => {
   const loadData = async (user: User) => {
     if (user.role === 'MARINA' || user.role === 'OPERATIONAL') {
       // Load all users and reservations for MARINA
-      const { users: allUsers } = await usersService.getAllUsers();
-      const { reservations: allReservations } = await reservationsService.getAllReservations();
+      const [{ users: allUsers }, { reservations: allReservations }] = await Promise.all([
+        usersService.getAllUsers(),
+        reservationsService.getAllReservations(),
+      ]);
       setUsers(allUsers);
       setReservations(allReservations);
     } else {
       // Load all reservations for CLIENT to enforce jet group blocking
-      const { user: refreshedUser } = await usersService.getUserById(user.id);
+      const [{ user: refreshedUser }, { reservations: allReservations }] = await Promise.all([
+        usersService.getUserById(user.id),
+        reservationsService.getAllReservations(),
+      ]);
+
       if (refreshedUser) {
         setCurrentUser(refreshedUser);
         authService.saveCurrentUser(refreshedUser);
       }
-      const { reservations: allReservations } = await reservationsService.getAllReservations();
       setReservations(allReservations);
     }
   };
