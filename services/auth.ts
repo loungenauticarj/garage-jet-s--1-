@@ -159,19 +159,39 @@ export async function login(email: string, password: string, role: 'CLIENT' | 'M
 
         // Special case for MARINA admin
         if (role === 'MARINA') {
-            // Check if admin user exists
-            const { data, error } = await supabase
+            const adminAliases = ['admin@marina.com', 'admin@garagejets.com'];
+            const isAdminAlias = adminAliases.includes(normalizedEmail);
+
+            let marinaData: any = null;
+
+            const { data: directData } = await supabase
                 .from('users')
                 .select('*')
                 .eq('email', normalizedEmail)
                 .eq('role', 'MARINA')
-                .single();
+                .maybeSingle();
 
-            if (error || !data) {
+            marinaData = directData;
+
+            if (!marinaData && isAdminAlias) {
+                const alternateEmail = adminAliases.find((alias) => alias !== normalizedEmail);
+
+                if (alternateEmail) {
+                    const { data: alternateData } = await supabase
+                        .from('users')
+                        .select('*')
+                        .eq('email', alternateEmail)
+                        .eq('role', 'MARINA')
+                        .maybeSingle();
+
+                    marinaData = alternateData;
+                }
+            }
+
+            if (!marinaData) {
                 // Create default admin if doesn't exist
                 const canCreateAdmin =
-                    (normalizedEmail === 'admin@garagejets.com' && password === 'admin123') ||
-                    (normalizedEmail === 'admin@marina.com' && password === '1234');
+                    isAdminAlias && (password === 'admin123' || password === '1234');
 
                 if (canCreateAdmin) {
                     const { data: newAdmin, error: createError } = await supabase
@@ -191,9 +211,9 @@ export async function login(email: string, password: string, role: 'CLIENT' | 'M
                                 is_blocked: false,
                                 jet_ski_manufacturer: 'N/A',
                                 jet_ski_model: 'N/A',
-                                        jet_ski_year: '2024',
-                                        // avoid jet_name/owner_type for compatibility
-                                    },
+                                jet_ski_year: '2024',
+                                // avoid jet_name/owner_type for compatibility
+                            },
                         ])
                         .select()
                         .single();
@@ -202,73 +222,50 @@ export async function login(email: string, password: string, role: 'CLIENT' | 'M
                         return { user: null, error: 'Erro ao criar admin' };
                     }
 
-                    localStorage.setItem(`pwd_${normalizedEmail}`, password);
-
-                    const user: User = {
-                        id: newAdmin.id,
-                        email: newAdmin.email,
-                        name: newAdmin.name,
-                        phone: newAdmin.phone,
-                        cpf: newAdmin.cpf,
-                        address: newAdmin.address,
-                        cep: newAdmin.cep,
-                        registrationCode: newAdmin.registration_code,
-                        role: newAdmin.role,
-                        monthlyDueDate: newAdmin.monthly_due_date,
-                        monthlyValue: newAdmin.monthly_value,
-                        isBlocked: newAdmin.is_blocked,
-                        jetSkiManufacturer: newAdmin.jet_ski_manufacturer,
-                        jetSkiModel: newAdmin.jet_ski_model,
-                        jetSkiYear: newAdmin.jet_ski_year,
-                        jetName: newAdmin.jet_name || '',
-                        ownerType: newAdmin.owner_type || 'UNICO',
-                    };
-
-                    return { user, error: null };
-                }
-                return { user: null, error: 'Admin não encontrado' };
-            }
-
-            // Special handling for admin@marina.com - set password on first login
-            if (normalizedEmail === 'admin@marina.com' && password === '1234') {
-                const storedPassword = localStorage.getItem(`pwd_${normalizedEmail}`);
-                if (!storedPassword) {
-                    // First time login - store the password
-                    localStorage.setItem(`pwd_${normalizedEmail}`, password);
+                    marinaData = newAdmin;
+                } else {
+                    return { user: null, error: 'Admin não encontrado' };
                 }
             }
 
-            // Verify password
-            const storedPassword = localStorage.getItem(`pwd_${normalizedEmail}`);
-            // Se houver senha armazenada, validar contra ela.
-            // Se não houver, aceitar a senha digitada na primeira entrada e salvar.
+            const canonicalEmail = String(marinaData.email || normalizedEmail).toLowerCase();
+            const storedPasswordByLoginEmail = localStorage.getItem(`pwd_${normalizedEmail}`);
+            const storedPasswordByCanonicalEmail = localStorage.getItem(`pwd_${canonicalEmail}`);
+            const storedPassword = storedPasswordByLoginEmail || storedPasswordByCanonicalEmail;
+
             if (storedPassword) {
                 if (storedPassword !== password) {
                     return { user: null, error: 'Senha incorreta' };
                 }
             } else {
-                localStorage.setItem(`pwd_${normalizedEmail}`, password);
+                localStorage.setItem(`pwd_${canonicalEmail}`, password);
+                if (isAdminAlias) {
+                    adminAliases.forEach((alias) => localStorage.setItem(`pwd_${alias}`, password));
+                }
             }
 
+            if (isAdminAlias) {
+                adminAliases.forEach((alias) => localStorage.setItem(`pwd_${alias}`, password));
+            }
 
             const user: User = {
-                id: data.id,
-                email: data.email,
-                name: data.name,
-                phone: data.phone,
-                cpf: data.cpf,
-                address: data.address,
-                cep: data.cep,
-                registrationCode: data.registration_code,
-                role: data.role,
-                monthlyDueDate: data.monthly_due_date,
-                monthlyValue: data.monthly_value,
-                isBlocked: data.is_blocked,
-                jetSkiManufacturer: data.jet_ski_manufacturer,
-                jetSkiModel: data.jet_ski_model,
-                jetSkiYear: data.jet_ski_year,
-                jetName: data.jet_name || '',
-                ownerType: data.owner_type || 'UNICO',
+                id: marinaData.id,
+                email: marinaData.email,
+                name: marinaData.name,
+                phone: marinaData.phone,
+                cpf: marinaData.cpf,
+                address: marinaData.address,
+                cep: marinaData.cep,
+                registrationCode: marinaData.registration_code,
+                role: marinaData.role,
+                monthlyDueDate: marinaData.monthly_due_date,
+                monthlyValue: marinaData.monthly_value,
+                isBlocked: marinaData.is_blocked,
+                jetSkiManufacturer: marinaData.jet_ski_manufacturer,
+                jetSkiModel: marinaData.jet_ski_model,
+                jetSkiYear: marinaData.jet_ski_year,
+                jetName: marinaData.jet_name || '',
+                ownerType: marinaData.owner_type || 'UNICO',
             };
 
             return { user, error: null };
