@@ -194,35 +194,68 @@ export async function login(email: string, password: string, role: 'CLIENT' | 'M
                     isAdminAlias && (password === '2406' || password === '1234');
 
                 if (canCreateAdmin) {
-                    const { data: newAdmin, error: createError } = await supabase
+                    // If email already exists in another role, promote it to MARINA.
+                    const { data: existingByEmail } = await supabase
                         .from('users')
-                        .insert([
-                            {
-                                email: normalizedEmail,
-                                name: 'Admin Marina',
-                                phone: '0000000000',
-                                cpf: '00000000000',
-                                address: 'Marina',
-                                cep: '00000000',
-                                registration_code: '000',
+                        .select('*')
+                        .eq('email', normalizedEmail)
+                        .maybeSingle();
+
+                    if (existingByEmail) {
+                        const { data: promotedUser, error: promoteError } = await supabase
+                            .from('users')
+                            .update({
                                 role: 'MARINA',
-                                monthly_due_date: 1,
-                                monthly_value: 0,
+                                name: existingByEmail.name || 'Admin Marina',
+                                monthly_due_date: existingByEmail.monthly_due_date ?? 1,
+                                monthly_value: existingByEmail.monthly_value ?? 0,
                                 is_blocked: false,
-                                jet_ski_manufacturer: 'N/A',
-                                jet_ski_model: 'N/A',
-                                jet_ski_year: '2024',
-                                // avoid jet_name/owner_type for compatibility
-                            },
-                        ])
-                        .select()
-                        .single();
+                                jet_ski_manufacturer: existingByEmail.jet_ski_manufacturer || 'N/A',
+                                jet_ski_model: existingByEmail.jet_ski_model || 'N/A',
+                                jet_ski_year: existingByEmail.jet_ski_year || '2024',
+                            })
+                            .eq('id', existingByEmail.id)
+                            .select()
+                            .single();
 
-                    if (createError) {
-                        return { user: null, error: 'Erro ao criar admin' };
+                        if (promoteError) {
+                            return { user: null, error: `Erro ao promover admin: ${(promoteError as any).message || 'desconhecido'}` };
+                        }
+
+                        marinaData = promotedUser;
+                    } else {
+                        const registrationCode = await getNextRegistrationCode();
+
+                        const { data: newAdmin, error: createError } = await supabase
+                            .from('users')
+                            .insert([
+                                {
+                                    email: normalizedEmail,
+                                    name: 'Admin Marina',
+                                    phone: '0000000000',
+                                    cpf: null,
+                                    address: 'Marina',
+                                    cep: '00000000',
+                                    registration_code: registrationCode,
+                                    role: 'MARINA',
+                                    monthly_due_date: 1,
+                                    monthly_value: 0,
+                                    is_blocked: false,
+                                    jet_ski_manufacturer: 'N/A',
+                                    jet_ski_model: 'N/A',
+                                    jet_ski_year: '2024',
+                                    // avoid jet_name/owner_type for compatibility
+                                },
+                            ])
+                            .select()
+                            .single();
+
+                        if (createError) {
+                            return { user: null, error: `Erro ao criar admin: ${(createError as any).message || 'desconhecido'}` };
+                        }
+
+                        marinaData = newAdmin;
                     }
-
-                    marinaData = newAdmin;
                 } else {
                     return { user: null, error: 'Admin não encontrado' };
                 }
