@@ -306,18 +306,29 @@ const App: React.FC = () => {
   };
 
   const handleLogin = async (email: string, password: string, role: 'CLIENT' | 'MARINA' | 'OPERATIONAL') => {
-    const { user, error } = await authService.login(email, password, role);
+    try {
+      const { user, error } = await authService.login(email, password, role);
 
-    if (error) {
-      alert(error);
-      return;
-    }
+      if (error) {
+        alert(error);
+        return;
+      }
 
-    if (user) {
-      setCurrentUser(user);
-      authService.saveCurrentUser(user);
-      setView(role === 'MARINA' || role === 'OPERATIONAL' ? 'MARINA' : 'CLIENT');
-      await loadData(user, { force: true });
+      if (user) {
+        setCurrentUser(user);
+        authService.saveCurrentUser(user);
+        setView(role === 'MARINA' || role === 'OPERATIONAL' ? 'MARINA' : 'CLIENT');
+
+        try {
+          await loadData(user, { force: true });
+        } catch (loadError) {
+          console.error('Erro ao carregar dados após login:', loadError);
+          alert('Login realizado, mas houve falha ao carregar dados iniciais. Tente atualizar a página.');
+        }
+      }
+    } catch (err: any) {
+      console.error('Erro inesperado no login:', err);
+      alert('Não foi possível concluir o login. Tente novamente.');
     }
   };
 

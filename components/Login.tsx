@@ -12,7 +12,7 @@ const JetSkiLogo = ({ className = "w-24 h-24" }: { className?: string }) => (
 );
 
 interface Props {
-  onLogin: (email: string, password: string, role: 'CLIENT' | 'MARINA' | 'OPERATIONAL') => void;
+  onLogin: (email: string, password: string, role: 'CLIENT' | 'MARINA' | 'OPERATIONAL') => Promise<void> | void;
   onGoToRegister: () => void;
 }
 
@@ -20,16 +20,25 @@ const Login: React.FC<Props> = ({ onLogin, onGoToRegister }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
     const normalizedEmail = email.trim().toLowerCase();
-    if (normalizedEmail === 'operacional@marina.com') {
-      onLogin(normalizedEmail, password, 'OPERATIONAL');
-    } else if (normalizedEmail === 'admin@marina.com' || normalizedEmail === 'admin@garagejets.com') {
-      onLogin(normalizedEmail, password, 'MARINA');
-    } else {
-      onLogin(normalizedEmail, password, 'CLIENT');
+
+    try {
+      if (normalizedEmail === 'operacional@marina.com') {
+        await onLogin(normalizedEmail, password, 'OPERATIONAL');
+      } else if (normalizedEmail === 'admin@marina.com' || normalizedEmail === 'admin@garagejets.com') {
+        await onLogin(normalizedEmail, password, 'MARINA');
+      } else {
+        await onLogin(normalizedEmail, password, 'CLIENT');
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -89,9 +98,14 @@ const Login: React.FC<Props> = ({ onLogin, onGoToRegister }) => {
             </div>
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl hover:bg-blue-700 transition-all duration-300 shadow-lg shadow-blue-200 transform active:scale-95 uppercase tracking-wider mt-4"
+              disabled={isSubmitting}
+              className={`w-full text-white font-black py-4 rounded-2xl transition-all duration-300 shadow-lg shadow-blue-200 uppercase tracking-wider mt-4 ${
+                isSubmitting
+                  ? 'bg-blue-400 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700 transform active:scale-95'
+              }`}
             >
-              Entrar
+              {isSubmitting ? 'Entrando...' : 'Entrar'}
             </button>
           </form>
 

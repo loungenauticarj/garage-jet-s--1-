@@ -155,24 +155,30 @@ export async function register(userData: RegisterData): Promise<{ user: User | n
 // Login user
 export async function login(email: string, password: string, role: 'CLIENT' | 'MARINA' | 'OPERATIONAL'): Promise<{ user: User | null; error: string | null }> {
     try {
+        const normalizedEmail = email.trim().toLowerCase();
+
         // Special case for MARINA admin
         if (role === 'MARINA') {
             // Check if admin user exists
             const { data, error } = await supabase
                 .from('users')
                 .select('*')
-                .eq('email', email)
+                .eq('email', normalizedEmail)
                 .eq('role', 'MARINA')
                 .single();
 
             if (error || !data) {
                 // Create default admin if doesn't exist
-                if (email === 'admin@garagejets.com' && password === 'admin123') {
+                const canCreateAdmin =
+                    (normalizedEmail === 'admin@garagejets.com' && password === 'admin123') ||
+                    (normalizedEmail === 'admin@marina.com' && password === '1234');
+
+                if (canCreateAdmin) {
                     const { data: newAdmin, error: createError } = await supabase
                         .from('users')
                         .insert([
                             {
-                                email: 'admin@garagejets.com',
+                                email: normalizedEmail,
                                 name: 'Admin Marina',
                                 phone: '0000000000',
                                 cpf: '00000000000',
@@ -196,7 +202,7 @@ export async function login(email: string, password: string, role: 'CLIENT' | 'M
                         return { user: null, error: 'Erro ao criar admin' };
                     }
 
-                    localStorage.setItem('pwd_admin@garagejets.com', 'admin123');
+                    localStorage.setItem(`pwd_${normalizedEmail}`, password);
 
                     const user: User = {
                         id: newAdmin.id,
@@ -224,16 +230,16 @@ export async function login(email: string, password: string, role: 'CLIENT' | 'M
             }
 
             // Special handling for admin@marina.com - set password on first login
-            if (email === 'admin@marina.com' && password === '1234') {
-                const storedPassword = localStorage.getItem(`pwd_${email}`);
+            if (normalizedEmail === 'admin@marina.com' && password === '1234') {
+                const storedPassword = localStorage.getItem(`pwd_${normalizedEmail}`);
                 if (!storedPassword) {
                     // First time login - store the password
-                    localStorage.setItem(`pwd_${email}`, password);
+                    localStorage.setItem(`pwd_${normalizedEmail}`, password);
                 }
             }
 
             // Verify password
-            const storedPassword = localStorage.getItem(`pwd_${email}`);
+            const storedPassword = localStorage.getItem(`pwd_${normalizedEmail}`);
             // Se houver senha armazenada, validar contra ela.
             // Se não houver, aceitar a senha digitada na primeira entrada e salvar.
             if (storedPassword) {
@@ -241,7 +247,7 @@ export async function login(email: string, password: string, role: 'CLIENT' | 'M
                     return { user: null, error: 'Senha incorreta' };
                 }
             } else {
-                localStorage.setItem(`pwd_${email}`, password);
+                localStorage.setItem(`pwd_${normalizedEmail}`, password);
             }
 
 
@@ -312,7 +318,7 @@ export async function login(email: string, password: string, role: 'CLIENT' | 'M
         const { data, error } = await supabase
             .from('users')
             .select('*')
-            .eq('email', email)
+            .eq('email', normalizedEmail)
             .eq('role', 'CLIENT')
             .single();
 
@@ -321,7 +327,7 @@ export async function login(email: string, password: string, role: 'CLIENT' | 'M
         }
 
         // Verify password (stored in localStorage for simplicity)
-        const storedPassword = localStorage.getItem(`pwd_${email}`);
+        const storedPassword = localStorage.getItem(`pwd_${normalizedEmail}`);
         // Se houver senha armazenada, validar contra ela
         // Se não houver, significa que é novo ou foi resetada - aceitar a senha digitada e salvar
         if (storedPassword) {
@@ -330,7 +336,7 @@ export async function login(email: string, password: string, role: 'CLIENT' | 'M
             }
         } else {
             // Primeira tentativa após reset ou novo login - salvar a senha na localStorage
-            localStorage.setItem(`pwd_${email}`, password);
+            localStorage.setItem(`pwd_${normalizedEmail}`, password);
         }
 
         const user: User = {
