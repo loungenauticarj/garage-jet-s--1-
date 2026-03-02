@@ -76,6 +76,7 @@ const App: React.FC = () => {
     }
   });
   const [loading, setLoading] = useState(true);
+  const [isDataSyncing, setIsDataSyncing] = useState(false);
   const [lastDataUpdateAt, setLastDataUpdateAt] = useState<number | null>(null);
   const [dataLoadSource, setDataLoadSource] = useState<'cache' | 'network' | 'mixed'>('network');
   const [nowTick, setNowTick] = useState<number>(Date.now());
@@ -84,8 +85,23 @@ const App: React.FC = () => {
   const reservationsLiteCacheRef = useRef<{ data: Reservation[]; timestamp: number } | null>(null);
   const userReservationsCacheRef = useRef<Record<string, { data: Reservation[]; timestamp: number }>>({});
   const userProfileCacheRef = useRef<Record<string, { data: User; timestamp: number }>>({});
+  const pendingLoadsRef = useRef(0);
 
   const isCacheFresh = (timestamp: number) => Date.now() - timestamp < CACHE_TTL_MS;
+
+  const runDataLoadInBackground = async (user: User, options?: { force?: boolean }) => {
+    pendingLoadsRef.current += 1;
+    setIsDataSyncing(true);
+
+    try {
+      await loadData(user, options);
+    } finally {
+      pendingLoadsRef.current = Math.max(0, pendingLoadsRef.current - 1);
+      if (pendingLoadsRef.current === 0) {
+        setIsDataSyncing(false);
+      }
+    }
+  };
 
   // Load current user on mount
   useEffect(() => {
@@ -95,7 +111,9 @@ const App: React.FC = () => {
         if (user) {
           setCurrentUser(user);
           setView(user.role === 'MARINA' || user.role === 'OPERATIONAL' ? 'MARINA' : 'CLIENT');
-          await loadData(user, { force: true });
+          runDataLoadInBackground(user, { force: true }).catch((err) => {
+            console.error('Erro ao carregar dados em segundo plano:', err);
+          });
         }
       } catch (err) {
         console.error('Erro ao inicializar aplicação:', err);
@@ -130,7 +148,7 @@ const App: React.FC = () => {
 
       isRefreshingRef.current = true;
       try {
-        await loadData(user);
+        await runDataLoadInBackground(user);
       } finally {
         isRefreshingRef.current = false;
       }
@@ -152,7 +170,7 @@ const App: React.FC = () => {
         if (!isRefreshingRef.current) {
           isRefreshingRef.current = true;
           try {
-            await loadData(user, { force: true });
+            await runDataLoadInBackground(user, { force: true });
           } finally {
             isRefreshingRef.current = false;
           }
@@ -327,13 +345,10 @@ const App: React.FC = () => {
         setCurrentUser(user);
         authService.saveCurrentUser(user);
         setView(role === 'MARINA' || role === 'OPERATIONAL' ? 'MARINA' : 'CLIENT');
-
-        try {
-          await loadData(user, { force: true });
-        } catch (loadError) {
+        runDataLoadInBackground(user, { force: true }).catch((loadError) => {
           console.error('Erro ao carregar dados após login:', loadError);
           alert('Login realizado, mas houve falha ao carregar dados iniciais. Tente atualizar a página.');
-        }
+        });
       }
     } catch (err: any) {
       console.error('Erro inesperado no login:', err);
@@ -366,7 +381,9 @@ const App: React.FC = () => {
       setCurrentUser(user);
       authService.saveCurrentUser(user);
       setView('CLIENT');
-      await loadData(user, { force: true });
+      runDataLoadInBackground(user, { force: true }).catch((loadError) => {
+        console.error('Erro ao carregar dados após cadastro:', loadError);
+      });
     }
   };
 
@@ -500,6 +517,9 @@ const App: React.FC = () => {
                   Atualizado há {Math.max(0, Math.floor((nowTick - lastDataUpdateAt) / 1000))}s • {dataLoadSource}
                 </p>
               )}
+              {isDataSyncing && (
+                <p className="text-[10px] text-blue-200 mt-1 animate-pulse">Sincronizando dados...</p>
+              )}
             </div>
             <button
               onClick={handleLogout}
@@ -514,7 +534,7 @@ const App: React.FC = () => {
       {currentUser && lastDataUpdateAt && (
         <div className="md:hidden bg-blue-900/60 text-blue-100 text-[10px] px-4 py-1.5 border-b border-blue-900/40 inline-flex items-center gap-1.5">
           <span className={`inline-block w-1.5 h-1.5 rounded-full ${dataLoadSource === 'cache' ? 'bg-emerald-300' : dataLoadSource === 'mixed' ? 'bg-amber-300' : 'bg-sky-300'}`}></span>
-          <span>Atualizado há {Math.max(0, Math.floor((nowTick - lastDataUpdateAt) / 1000))}s • {dataLoadSource}</span>
+          <span>Atualizado há {Math.max(0, Math.floor((nowTick - lastDataUpdateAt) / 1000))}s • {dataLoadSource}{isDataSyncing ? ' • sincronizando...' : ''}</span>
         </div>
       )}
 
