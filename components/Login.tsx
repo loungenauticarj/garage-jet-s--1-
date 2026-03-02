@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 const JetSkiLogo = ({ className = "w-24 h-24" }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -14,19 +14,35 @@ const JetSkiLogo = ({ className = "w-24 h-24" }: { className?: string }) => (
 interface Props {
   onLogin: (email: string, password: string, role: 'CLIENT' | 'MARINA' | 'OPERATIONAL') => Promise<void> | void;
   onGoToRegister: () => void;
+  statusMessage?: string;
 }
 
-const Login: React.FC<Props> = ({ onLogin, onGoToRegister }) => {
+const Login: React.FC<Props> = ({ onLogin, onGoToRegister, statusMessage }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitElapsedSeconds, setSubmitElapsedSeconds] = useState(0);
+
+  useEffect(() => {
+    if (!isSubmitting) {
+      setSubmitElapsedSeconds(0);
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      setSubmitElapsedSeconds((previous) => previous + 1);
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [isSubmitting]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
 
     setIsSubmitting(true);
+    setSubmitElapsedSeconds(0);
     const normalizedEmail = email.trim().toLowerCase();
 
     try {
@@ -105,8 +121,11 @@ const Login: React.FC<Props> = ({ onLogin, onGoToRegister }) => {
                   : 'bg-blue-600 hover:bg-blue-700 transform active:scale-95'
               }`}
             >
-              {isSubmitting ? 'Entrando...' : 'Entrar'}
+              {isSubmitting ? `Entrando... ${submitElapsedSeconds}s` : 'Entrar'}
             </button>
+            {statusMessage && (
+              <p className="text-center text-xs text-blue-600 font-semibold mt-3 animate-pulse">{statusMessage}</p>
+            )}
           </form>
 
           <div className="mt-10 text-center w-full">

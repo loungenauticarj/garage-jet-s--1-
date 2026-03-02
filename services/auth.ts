@@ -153,7 +153,12 @@ export async function register(userData: RegisterData): Promise<{ user: User | n
 }
 
 // Login user
-export async function login(email: string, password: string, role: 'CLIENT' | 'MARINA' | 'OPERATIONAL'): Promise<{ user: User | null; error: string | null }> {
+export async function login(
+    email: string,
+    password: string,
+    role: 'CLIENT' | 'MARINA' | 'OPERATIONAL',
+    options?: { onClientRetry?: (nextAttempt: number, maxAttempts: number) => void }
+): Promise<{ user: User | null; error: string | null }> {
     try {
         const normalizedEmail = email.trim().toLowerCase();
 
@@ -387,12 +392,51 @@ export async function login(email: string, password: string, role: 'CLIENT' | 'M
         }
 
         // Regular client login
-        const { data, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('email', normalizedEmail)
-            .eq('role', 'CLIENT')
-            .single();
+        const clientLoginTimeoutMs = 10000;
+        const retryDelayMs = 350;
+        const maxAttempts = 2;
+        const isRetryableLoginError = (err: any) => {
+            const message = String(err?.message || '').toUpperCase();
+            return (
+                message.includes('CLIENT_LOGIN_TIMEOUT') ||
+                message.includes('FAILED TO FETCH') ||
+                message.includes('NETWORK')
+            );
+        };
+
+        const runClientQueryWithTimeout = async () => {
+            const timeoutPromise = new Promise<never>((_, reject) => {
+                setTimeout(() => reject(new Error('CLIENT_LOGIN_TIMEOUT')), clientLoginTimeoutMs);
+            });
+
+            const userQueryPromise = supabase
+                .from('users')
+                .select('*')
+                .eq('email', normalizedEmail)
+                .eq('role', 'CLIENT')
+                .single();
+
+            return Promise.race([userQueryPromise, timeoutPromise]) as Promise<Awaited<typeof userQueryPromise>>;
+        };
+
+        let data: any = null;
+        let error: any = null;
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                const result = await runClientQueryWithTimeout();
+                data = result.data;
+                error = result.error;
+                break;
+            } catch (queryErr: any) {
+                if (attempt < maxAttempts && isRetryableLoginError(queryErr)) {
+                    options?.onClientRetry?.(attempt + 1, maxAttempts);
+                    await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+                    continue;
+                }
+                throw queryErr;
+            }
+        }
 
         if (error || !data) {
             return { user: null, error: 'Usuário não encontrado' };
@@ -433,6 +477,9 @@ export async function login(email: string, password: string, role: 'CLIENT' | 'M
 
         return { user, error: null };
     } catch (err: any) {
+        if (err?.message === 'CLIENT_LOGIN_TIMEOUT') {
+            return { user: null, error: 'Conexão lenta. Tente novamente em alguns segundos.' };
+        }
         console.error('Unexpected error during login:', err);
         return { user: null, error: err.message };
     }

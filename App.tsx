@@ -76,6 +76,7 @@ const App: React.FC = () => {
     }
   });
   const [loading, setLoading] = useState(true);
+  const [loginStatusMessage, setLoginStatusMessage] = useState('');
   const [isDataSyncing, setIsDataSyncing] = useState(false);
   const [lastDataUpdateAt, setLastDataUpdateAt] = useState<number | null>(null);
   const [dataLoadSource, setDataLoadSource] = useState<'cache' | 'network' | 'mixed'>('network');
@@ -334,14 +335,21 @@ const App: React.FC = () => {
 
   const handleLogin = async (email: string, password: string, role: 'CLIENT' | 'MARINA' | 'OPERATIONAL') => {
     try {
-      const { user, error } = await authService.login(email, password, role);
+      setLoginStatusMessage('');
+      const { user, error } = await authService.login(email, password, role, {
+        onClientRetry: (nextAttempt, maxAttempts) => {
+          setLoginStatusMessage(`Conexão instável. Tentando novamente... (${nextAttempt}/${maxAttempts})`);
+        },
+      });
 
       if (error) {
+        setLoginStatusMessage('');
         alert(error);
         return;
       }
 
       if (user) {
+        setLoginStatusMessage('');
         setCurrentUser(user);
         authService.saveCurrentUser(user);
         setView(role === 'MARINA' || role === 'OPERATIONAL' ? 'MARINA' : 'CLIENT');
@@ -351,6 +359,7 @@ const App: React.FC = () => {
         });
       }
     } catch (err: any) {
+      setLoginStatusMessage('');
       console.error('Erro inesperado no login:', err);
       alert('Não foi possível concluir o login. Tente novamente.');
     }
@@ -539,7 +548,7 @@ const App: React.FC = () => {
       )}
 
       <main className="flex-1 container mx-auto p-4 max-w-4xl">
-        {view === 'LOGIN' && <Login onLogin={handleLogin} onGoToRegister={() => setView('REGISTER')} />}
+        {view === 'LOGIN' && <Login onLogin={handleLogin} onGoToRegister={() => setView('REGISTER')} statusMessage={loginStatusMessage} />}
         {view === 'REGISTER' && <Register onRegister={handleRegister} onBack={() => setView('LOGIN')} />}
         {view === 'CLIENT' && currentUser && (
           <ClientDashboard
