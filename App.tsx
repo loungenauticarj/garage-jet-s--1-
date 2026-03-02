@@ -32,6 +32,33 @@ const JetSkiLogo = ({ className = "w-8 h-8" }: { className?: string }) => (
   </svg>
 );
 
+const CACHE_TTL_MS = 30000;
+
+const mergeWithCachedMedia = (baseReservations: Reservation[], cachedReservations: Reservation[]) => {
+  const cachedById = new Map(cachedReservations.map((reservation) => [reservation.id, reservation]));
+
+  return baseReservations.map((reservation) => {
+    const cached = cachedById.get(reservation.id);
+    if (!cached) return reservation;
+
+    const mergedClientPhotos =
+      reservation.clientPhotos && reservation.clientPhotos.length > 0
+        ? reservation.clientPhotos
+        : (cached.clientPhotos || []);
+
+    const mergedPhotos =
+      reservation.photos && reservation.photos.length > 0
+        ? reservation.photos
+        : (cached.photos || []);
+
+    return {
+      ...reservation,
+      clientPhotos: mergedClientPhotos,
+      photos: mergedPhotos,
+    };
+  });
+};
+
 const App: React.FC = () => {
   const [view, setView] = useState<'LOGIN' | 'REGISTER' | 'CLIENT' | 'MARINA'>('LOGIN');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -49,7 +76,16 @@ const App: React.FC = () => {
     }
   });
   const [loading, setLoading] = useState(true);
+  const [lastDataUpdateAt, setLastDataUpdateAt] = useState<number | null>(null);
+  const [dataLoadSource, setDataLoadSource] = useState<'cache' | 'network' | 'mixed'>('network');
+  const [nowTick, setNowTick] = useState<number>(Date.now());
   const isRefreshingRef = useRef(false);
+  const usersCacheRef = useRef<{ data: User[]; timestamp: number } | null>(null);
+  const reservationsLiteCacheRef = useRef<{ data: Reservation[]; timestamp: number } | null>(null);
+  const userReservationsCacheRef = useRef<Record<string, { data: Reservation[]; timestamp: number }>>({});
+  const userProfileCacheRef = useRef<Record<string, { data: User; timestamp: number }>>({});
+
+  const isCacheFresh = (timestamp: number) => Date.now() - timestamp < CACHE_TTL_MS;
 
   // Load current user on mount
   useEffect(() => {
@@ -58,11 +94,19 @@ const App: React.FC = () => {
       if (user) {
         setCurrentUser(user);
         setView(user.role === 'MARINA' || user.role === 'OPERATIONAL' ? 'MARINA' : 'CLIENT');
-        await loadData(user);
+        await loadData(user, { force: true });
       }
       setLoading(false);
     };
     loadUser();
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNowTick(Date.now());
+    }, 1000);
+
+    return () => clearInterval(timer);
   }, []);
 
   // Auto-refresh data with throttling and tab visibility awareness
@@ -99,7 +143,7 @@ const App: React.FC = () => {
         if (!isRefreshingRef.current) {
           isRefreshingRef.current = true;
           try {
-            await loadData(user);
+            await loadData(user, { force: true });
           } finally {
             isRefreshingRef.current = false;
           }
@@ -157,27 +201,107 @@ const App: React.FC = () => {
   }, [currentUser]);
 
   // Load data based on user role
-  const loadData = async (user: User) => {
+  const loadData = async (user: User, options?: { force?: boolean }) => {
+    const force = options?.force ?? false;
+
     if (user.role === 'MARINA' || user.role === 'OPERATIONAL') {
-      // Load all users and reservations for MARINA
-      const [{ users: allUsers }, { reservations: allReservations }] = await Promise.all([
-        usersService.getAllUsers(),
-        reservationsService.getAllReservations(),
-      ]);
+      // Load users + lightweight reservations for faster startup
+      const cachedUsers = !force && usersCacheRef.current && isCacheFresh(usersCacheRef.current.timestamp)
+        ? usersCacheRef.current.data
+        : null;
+      const cachedReservationsLite = !force && reservationsLiteCacheRef.current && isCacheFresh(reservationsLiteCacheRef.current.timestamp)
+        ? reservationsLiteCacheRef.current.data
+        : null;
+
+      const usersPromise = cachedUsers
+        ? Promise.resolve(cachedUsers)
+        : usersService.getAllUsers().then(({ users: fetchedUsers }) => {
+            usersCacheRef.current = { data: fetchedUsers, timestamp: Date.now() };
+            return fetchedUsers;
+          });
+
+      const reservationsLitePromise = cachedReservationsLite
+        ? Promise.resolve(cachedReservationsLite)
+        : reservationsService.getAllReservationsLite().then(({ reservations: fetchedReservations }) => {
+            reservationsLiteCacheRef.current = { data: fetchedReservations, timestamp: Date.now() };
+            return fetchedReservations;
+          });
+
+      const [allUsers, allReservationsLite] = await Promise.all([usersPromise, reservationsLitePromise]);
+
+      if (cachedUsers && cachedReservationsLite) {
+        setDataLoadSource('cache');
+      } else if (!cachedUsers && !cachedReservationsLite) {
+        setDataLoadSource('network');
+      } else {
+        setDataLoadSource('mixed');
+      }
+
+      setLastDataUpdateAt(Date.now());
+
       setUsers(allUsers);
-      setReservations(allReservations);
+      setReservations((previousReservations) => mergeWithCachedMedia(allReservationsLite, previousReservations));
     } else {
-      // Load all reservations for CLIENT to enforce jet group blocking
-      const [{ user: refreshedUser }, { reservations: allReservations }] = await Promise.all([
-        usersService.getUserById(user.id),
-        reservationsService.getAllReservations(),
+      // Load lightweight global reservations + full reservations for the current client
+      const cachedUserProfile = !force && userProfileCacheRef.current[user.id] && isCacheFresh(userProfileCacheRef.current[user.id].timestamp)
+        ? userProfileCacheRef.current[user.id].data
+        : null;
+      const cachedReservationsLite = !force && reservationsLiteCacheRef.current && isCacheFresh(reservationsLiteCacheRef.current.timestamp)
+        ? reservationsLiteCacheRef.current.data
+        : null;
+      const cachedUserReservations = !force && userReservationsCacheRef.current[user.id] && isCacheFresh(userReservationsCacheRef.current[user.id].timestamp)
+        ? userReservationsCacheRef.current[user.id].data
+        : null;
+
+      const refreshedUserPromise = cachedUserProfile
+        ? Promise.resolve(cachedUserProfile)
+        : usersService.getUserById(user.id).then(({ user: fetchedUser }) => {
+            if (fetchedUser) {
+              userProfileCacheRef.current[user.id] = { data: fetchedUser, timestamp: Date.now() };
+            }
+            return fetchedUser;
+          });
+
+      const reservationsLitePromise = cachedReservationsLite
+        ? Promise.resolve(cachedReservationsLite)
+        : reservationsService.getAllReservationsLite().then(({ reservations: fetchedReservations }) => {
+            reservationsLiteCacheRef.current = { data: fetchedReservations, timestamp: Date.now() };
+            return fetchedReservations;
+          });
+
+      const userReservationsPromise = cachedUserReservations
+        ? Promise.resolve(cachedUserReservations)
+        : reservationsService.getUserReservations(user.id).then(({ reservations: fetchedReservations }) => {
+            userReservationsCacheRef.current[user.id] = { data: fetchedReservations, timestamp: Date.now() };
+            return fetchedReservations;
+          });
+
+      const [refreshedUser, allReservationsLite, userReservations] = await Promise.all([
+        refreshedUserPromise,
+        reservationsLitePromise,
+        userReservationsPromise,
       ]);
+
+      const cacheHits = [cachedUserProfile, cachedReservationsLite, cachedUserReservations].filter(Boolean).length;
+      if (cacheHits === 3) {
+        setDataLoadSource('cache');
+      } else if (cacheHits === 0) {
+        setDataLoadSource('network');
+      } else {
+        setDataLoadSource('mixed');
+      }
+
+      setLastDataUpdateAt(Date.now());
 
       if (refreshedUser) {
         setCurrentUser(refreshedUser);
         authService.saveCurrentUser(refreshedUser);
       }
-      setReservations(allReservations);
+
+      const userReservationsById = new Map(userReservations.map((reservation) => [reservation.id, reservation]));
+      const mergedReservations = allReservationsLite.map((reservation) => userReservationsById.get(reservation.id) || reservation);
+
+      setReservations((previousReservations) => mergeWithCachedMedia(mergedReservations, previousReservations));
     }
   };
 
@@ -193,7 +317,7 @@ const App: React.FC = () => {
       setCurrentUser(user);
       authService.saveCurrentUser(user);
       setView(role === 'MARINA' || role === 'OPERATIONAL' ? 'MARINA' : 'CLIENT');
-      await loadData(user);
+      await loadData(user, { force: true });
     }
   };
 
@@ -222,9 +346,32 @@ const App: React.FC = () => {
       setCurrentUser(user);
       authService.saveCurrentUser(user);
       setView('CLIENT');
-      await loadData(user);
+      await loadData(user, { force: true });
     }
   };
+
+  useEffect(() => {
+    usersCacheRef.current = { data: users, timestamp: Date.now() };
+  }, [users]);
+
+  useEffect(() => {
+    reservationsLiteCacheRef.current = {
+      data: reservations.map((reservation) => ({
+        ...reservation,
+        photos: [],
+        clientPhotos: [],
+      })),
+      timestamp: Date.now(),
+    };
+
+    if (currentUser?.role === 'CLIENT') {
+      const currentUserReservations = reservations.filter((reservation) => reservation.userId === currentUser.id);
+      userReservationsCacheRef.current[currentUser.id] = {
+        data: currentUserReservations,
+        timestamp: Date.now(),
+      };
+    }
+  }, [reservations, currentUser]);
 
   const handleLogout = () => {
     authService.logout();
@@ -327,6 +474,12 @@ const App: React.FC = () => {
             <div className="hidden md:block text-right">
               <p className="text-xs font-bold leading-none">{currentUser.name}</p>
               <p className="text-[10px] text-blue-200 uppercase">{currentUser.role === 'MARINA' ? 'Administrador' : 'Cliente'}</p>
+              {lastDataUpdateAt && (
+                <p className="text-[10px] text-blue-300 mt-1 inline-flex items-center gap-1">
+                  <span className={`inline-block w-1.5 h-1.5 rounded-full ${dataLoadSource === 'cache' ? 'bg-emerald-300' : dataLoadSource === 'mixed' ? 'bg-amber-300' : 'bg-sky-300'}`}></span>
+                  Atualizado há {Math.max(0, Math.floor((nowTick - lastDataUpdateAt) / 1000))}s • {dataLoadSource}
+                </p>
+              )}
             </div>
             <button
               onClick={handleLogout}
@@ -337,6 +490,13 @@ const App: React.FC = () => {
           </div>
         )}
       </header>
+
+      {currentUser && lastDataUpdateAt && (
+        <div className="md:hidden bg-blue-900/60 text-blue-100 text-[10px] px-4 py-1.5 border-b border-blue-900/40 inline-flex items-center gap-1.5">
+          <span className={`inline-block w-1.5 h-1.5 rounded-full ${dataLoadSource === 'cache' ? 'bg-emerald-300' : dataLoadSource === 'mixed' ? 'bg-amber-300' : 'bg-sky-300'}`}></span>
+          <span>Atualizado há {Math.max(0, Math.floor((nowTick - lastDataUpdateAt) / 1000))}s • {dataLoadSource}</span>
+        </div>
+      )}
 
       <main className="flex-1 container mx-auto p-4 max-w-4xl">
         {view === 'LOGIN' && <Login onLogin={handleLogin} onGoToRegister={() => setView('REGISTER')} />}

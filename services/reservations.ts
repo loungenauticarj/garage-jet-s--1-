@@ -90,6 +90,50 @@ export async function getAllReservations(): Promise<{ reservations: Reservation[
     }
 }
 
+// Get all reservations without heavy media fields (photos/client_photos)
+export async function getAllReservationsLite(): Promise<{ reservations: Reservation[]; error: string | null }> {
+    try {
+        const { data, error } = await supabase
+            .from('reservations')
+            .select('id, user_id, user_name, jet_name, date, time, route, status, created_at, in_water_at, navigating_at, returned_at, checked_in_at, users:users (jet_name)')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+                console.error('Error fetching all reservations (lite):', {
+                    status: (error as any).status,
+                    code: (error as any).code,
+                    message: (error as any).message,
+                    details: (error as any).details,
+                });
+                console.error('Raw supabase error object:', error);
+                return { reservations: [], error: (error as any).message || error };
+        }
+
+        const reservations: Reservation[] = data.map((r: any) => ({
+            id: r.id,
+            userId: r.user_id,
+            userName: r.user_name,
+            jetName: r.jet_name || r.jetName || r.users?.jet_name || '',
+            date: r.date,
+            time: r.time,
+            route: r.route,
+            status: r.status as JetStatus,
+            photos: [],
+            clientPhotos: [],
+            createdAt: r.created_at,
+            inWaterAt: r.in_water_at,
+            navigatingAt: r.navigating_at,
+            returnedAt: r.returned_at,
+            checkedInAt: r.checked_in_at,
+        }));
+
+        return { reservations, error: null };
+    } catch (err: any) {
+        console.error('Unexpected error fetching all reservations (lite):', err);
+        return { reservations: [], error: err.message };
+    }
+}
+
 // Create reservation
 export async function createReservation(
     userId: string,
