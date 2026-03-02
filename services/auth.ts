@@ -191,7 +191,7 @@ export async function login(email: string, password: string, role: 'CLIENT' | 'M
             if (!marinaData) {
                 // Create default admin if doesn't exist
                 const canCreateAdmin =
-                    isAdminAlias && (password === 'admin123' || password === '1234');
+                    isAdminAlias && (password === '2406' || password === '1234');
 
                 if (canCreateAdmin) {
                     const { data: newAdmin, error: createError } = await supabase
@@ -373,7 +373,13 @@ export function logout(): void {
 export function getCurrentUser(): User | null {
     const userStr = localStorage.getItem('currentUser');
     if (!userStr) return null;
-    return JSON.parse(userStr);
+    try {
+        return JSON.parse(userStr);
+    } catch (err) {
+        console.error('Falha ao ler currentUser do localStorage:', err);
+        localStorage.removeItem('currentUser');
+        return null;
+    }
 }
 
 // Save current user to localStorage

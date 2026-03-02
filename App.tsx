@@ -90,13 +90,22 @@ const App: React.FC = () => {
   // Load current user on mount
   useEffect(() => {
     const loadUser = async () => {
-      const user = authService.getCurrentUser();
-      if (user) {
-        setCurrentUser(user);
-        setView(user.role === 'MARINA' || user.role === 'OPERATIONAL' ? 'MARINA' : 'CLIENT');
-        await loadData(user, { force: true });
+      try {
+        const user = authService.getCurrentUser();
+        if (user) {
+          setCurrentUser(user);
+          setView(user.role === 'MARINA' || user.role === 'OPERATIONAL' ? 'MARINA' : 'CLIENT');
+          await loadData(user, { force: true });
+        }
+      } catch (err) {
+        console.error('Erro ao inicializar aplicação:', err);
+        localStorage.removeItem('currentUser');
+        setCurrentUser(null);
+        setView('LOGIN');
+        alert('Houve um problema ao carregar sua sessão. Faça login novamente.');
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     loadUser();
   }, []);
