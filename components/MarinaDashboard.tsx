@@ -769,7 +769,7 @@ const MarinaDashboard: React.FC<Props> = ({
                       >
                         Navegando
                       </button>
-                      {currentUser?.email === 'admin@marina.com' && (
+                      {currentUser?.role === 'MARINA' && (
                         <button
                           onClick={() => onDeleteReservation(res.id)}
                           className="bg-red-600 text-white text-xs font-bold py-2 px-3 rounded-lg hover:bg-red-700 transition shadow-sm active:scale-95"
@@ -825,7 +825,7 @@ const MarinaDashboard: React.FC<Props> = ({
                       >
                         Retornou e check-in
                       </button>
-                      {currentUser?.email === 'admin@marina.com' && (
+                      {currentUser?.role === 'MARINA' && (
                         <button
                           onClick={() => onDeleteReservation(res.id)}
                           className="bg-red-600 text-white text-xs font-bold py-2 px-3 rounded-lg hover:bg-red-700 transition shadow-sm active:scale-95"
@@ -957,7 +957,7 @@ const MarinaDashboard: React.FC<Props> = ({
                       )}
 
                       {/* Delete Button for Admin */}
-                      {currentUser?.email === 'admin@marina.com' && (
+                      {currentUser?.role === 'MARINA' && (
                         <button
                           onClick={() => onDeleteReservation(res.id)}
                           className="w-full bg-red-600 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-red-700 transition flex items-center justify-center gap-2 active:scale-95"

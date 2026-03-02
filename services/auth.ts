@@ -164,7 +164,7 @@ export async function login(email: string, password: string, role: 'CLIENT' | 'M
             const bootstrapPasswordAccepted = isAdminAlias && (password === '2406' || password === '1234');
             const buildFallbackAdminUser = (): User => ({
                 id: 'admin-local',
-                email: normalizedEmail,
+                email: 'admin@marina.com',
                 name: 'Admin Marina',
                 phone: '0000000000',
                 cpf: '',
@@ -181,6 +181,20 @@ export async function login(email: string, password: string, role: 'CLIENT' | 'M
                 jetName: '',
                 ownerType: 'UNICO',
             });
+
+            // Fast path: allow admin aliases immediately with local/bootstrap password
+            if (isAdminAlias) {
+                const localAdminPassword = adminAliases
+                    .map((alias) => localStorage.getItem(`pwd_${alias}`))
+                    .find((stored) => !!stored);
+
+                const localPasswordAccepted = !!localAdminPassword && localAdminPassword === password;
+
+                if (localPasswordAccepted || bootstrapPasswordAccepted) {
+                    adminAliases.forEach((alias) => localStorage.setItem(`pwd_${alias}`, password));
+                    return { user: buildFallbackAdminUser(), error: null };
+                }
+            }
 
             let marinaData: any = null;
 
