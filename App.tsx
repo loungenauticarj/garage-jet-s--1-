@@ -336,11 +336,17 @@ const App: React.FC = () => {
   const handleLogin = async (email: string, password: string, role: 'CLIENT' | 'MARINA' | 'OPERATIONAL') => {
     try {
       setLoginStatusMessage('');
-      const { user, error } = await authService.login(email, password, role, {
+      let loginResult = await authService.login(email, password, role, {
         onClientRetry: (nextAttempt, maxAttempts) => {
           setLoginStatusMessage(`Conexão instável. Tentando novamente... (${nextAttempt}/${maxAttempts})`);
         },
       });
+
+      if (role === 'CLIENT' && loginResult.error === 'Usuário não encontrado') {
+        loginResult = await authService.login(email, password, 'OPERATIONAL');
+      }
+
+      const { user, error } = loginResult;
 
       if (error) {
         setLoginStatusMessage('');
@@ -394,6 +400,37 @@ const App: React.FC = () => {
         console.error('Erro ao carregar dados após cadastro:', loadError);
       });
     }
+  };
+
+  const handleCreateMarinaAccessUser = async (payload: {
+    name: string;
+    email: string;
+    password: string;
+    isBlocked: boolean;
+  }): Promise<{ success: boolean; message: string }> => {
+    const { user, error } = await authService.register({
+      email: payload.email,
+      password: payload.password,
+      name: payload.name,
+      phone: '0000000000',
+      cpf: '',
+      address: 'Marina',
+      cep: '00000000',
+      monthlyDueDate: 1,
+      monthlyValue: 0,
+      jetSkiManufacturer: 'N/A',
+      jetSkiModel: 'N/A',
+      jetSkiYear: '2024',
+      role: 'OPERATIONAL',
+      isBlocked: payload.isBlocked,
+    });
+
+    if (error || !user) {
+      return { success: false, message: error || 'Erro ao criar acesso operacional.' };
+    }
+
+    setUsers((prev) => [user, ...prev]);
+    return { success: true, message: 'Acesso operacional criado com sucesso.' };
   };
 
   useEffect(() => {
@@ -572,6 +609,7 @@ const App: React.FC = () => {
             onDeleteReservation={deleteReservation}
             onAddMaintenanceBlock={handleAddMaintenanceBlock}
             onRemoveMaintenanceBlock={handleRemoveMaintenanceBlock}
+            onCreateMarinaAccessUser={handleCreateMarinaAccessUser}
             currentUser={currentUser}
             operationsOnly={currentUser?.role === 'OPERATIONAL'}
           />

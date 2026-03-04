@@ -14,6 +14,8 @@ export interface RegisterData {
     jetSkiManufacturer: string;
     jetSkiModel: string;
     jetSkiYear: string;
+    role?: 'CLIENT' | 'OPERATIONAL';
+    isBlocked?: boolean;
 }
 
 // Get next registration code
@@ -43,6 +45,8 @@ export async function register(userData: RegisterData): Promise<{ user: User | n
     try {
         const normalizedCpf = userData.cpf?.trim();
         const cpfValue = normalizedCpf ? normalizedCpf : null;
+        const roleToCreate = userData.role || 'CLIENT';
+        const isBlocked = userData.isBlocked ?? false;
 
         // Get next registration code
         const registrationCode = await getNextRegistrationCode();
@@ -93,13 +97,13 @@ export async function register(userData: RegisterData): Promise<{ user: User | n
                     address: userData.address,
                     cep: userData.cep,
                     registration_code: registrationCode,
-                    role: 'CLIENT',
-                    monthly_due_date: userData.monthlyDueDate,
-                    monthly_value: userData.monthlyValue,
-                    is_blocked: false,
-                    jet_ski_manufacturer: userData.jetSkiManufacturer,
-                    jet_ski_model: userData.jetSkiModel,
-                    jet_ski_year: userData.jetSkiYear,
+                    role: roleToCreate,
+                    monthly_due_date: roleToCreate === 'OPERATIONAL' ? 1 : userData.monthlyDueDate,
+                    monthly_value: roleToCreate === 'OPERATIONAL' ? 0 : userData.monthlyValue,
+                    is_blocked: isBlocked,
+                    jet_ski_manufacturer: roleToCreate === 'OPERATIONAL' ? 'N/A' : userData.jetSkiManufacturer,
+                    jet_ski_model: roleToCreate === 'OPERATIONAL' ? 'N/A' : userData.jetSkiModel,
+                    jet_ski_year: roleToCreate === 'OPERATIONAL' ? '2024' : userData.jetSkiYear,
                     // note: `jet_name` and `owner_type` columns may not exist on some DBs;
                     // avoid sending them to prevent 400 errors. If your DB has these
                     // columns, add them via SQL or uncomment the lines below.
@@ -352,23 +356,64 @@ export async function login(
         }
 
         if (role === 'OPERATIONAL') {
+            const { data: operationalData } = await supabase
+                .from('users')
+                .select('*')
+                .eq('email', normalizedEmail)
+                .eq('role', 'OPERATIONAL')
+                .maybeSingle();
+
+            if (operationalData) {
+                if (operationalData.is_blocked) {
+                    return { user: null, error: 'Usuário operacional bloqueado' };
+                }
+
+                const storedPassword = localStorage.getItem(`pwd_${normalizedEmail}`);
+                if (storedPassword) {
+                    if (storedPassword !== password) {
+                        return { user: null, error: 'Senha incorreta' };
+                    }
+                } else {
+                    localStorage.setItem(`pwd_${normalizedEmail}`, password);
+                }
+
+                const user: User = {
+                    id: operationalData.id,
+                    email: operationalData.email,
+                    name: operationalData.name,
+                    phone: operationalData.phone,
+                    cpf: operationalData.cpf,
+                    address: operationalData.address,
+                    cep: operationalData.cep,
+                    registrationCode: operationalData.registration_code,
+                    role: operationalData.role,
+                    monthlyDueDate: operationalData.monthly_due_date,
+                    monthlyValue: operationalData.monthly_value,
+                    isBlocked: operationalData.is_blocked,
+                    jetSkiManufacturer: operationalData.jet_ski_manufacturer,
+                    jetSkiModel: operationalData.jet_ski_model,
+                    jetSkiYear: operationalData.jet_ski_year,
+                    jetName: operationalData.jet_name || '',
+                    ownerType: operationalData.owner_type || 'UNICO',
+                };
+
+                return { user, error: null };
+            }
+
             const operationalEmail = 'operacional@marina.com';
             const operationalPassword = '9876';
+            const storedLegacyPassword = localStorage.getItem(`pwd_${operationalEmail}`);
+            const validLegacyPassword = storedLegacyPassword || operationalPassword;
 
-            // Verificar se há senha resetada em localStorage
-            const storedPassword = localStorage.getItem(`pwd_${operationalEmail}`);
-            const validPassword = storedPassword || operationalPassword;
-
-            if (email !== operationalEmail || password !== validPassword) {
+            if (normalizedEmail !== operationalEmail || password !== validLegacyPassword) {
                 return { user: null, error: 'Credenciais operacionais inválidas' };
             }
-            
-            // Se não houver senha armazenada, salvar a padrão
-            if (!storedPassword) {
+
+            if (!storedLegacyPassword) {
                 localStorage.setItem(`pwd_${operationalEmail}`, operationalPassword);
             }
 
-            const user: User = {
+            const legacyOperationalUser: User = {
                 id: 'operational-local',
                 email: operationalEmail,
                 name: 'Operacional Marina',
@@ -388,7 +433,7 @@ export async function login(
                 ownerType: 'UNICO',
             };
 
-            return { user, error: null };
+            return { user: legacyOperationalUser, error: null };
         }
 
         // Regular client login
@@ -440,6 +485,10 @@ export async function login(
 
         if (error || !data) {
             return { user: null, error: 'Usuário não encontrado' };
+        }
+
+        if (data.is_blocked) {
+            return { user: null, error: 'Usuário bloqueado. Favor entrar em contato com o administrador.' };
         }
 
         // Verify password (stored in localStorage for simplicity)

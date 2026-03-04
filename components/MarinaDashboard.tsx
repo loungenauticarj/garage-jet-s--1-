@@ -36,6 +36,12 @@ interface Props {
   onDeleteReservation: (reservationId: string) => void;
   onAddMaintenanceBlock: (block: Omit<MaintenanceBlock, 'id' | 'createdAt'>) => void;
   onRemoveMaintenanceBlock: (blockId: string) => void;
+  onCreateMarinaAccessUser: (payload: {
+    name: string;
+    email: string;
+    password: string;
+    isBlocked: boolean;
+  }) => Promise<{ success: boolean; message: string }>;
   currentUser: User | null;
   operationsOnly?: boolean;
 }
@@ -50,6 +56,7 @@ const MarinaDashboard: React.FC<Props> = ({
   onDeleteReservation,
   onAddMaintenanceBlock,
   onRemoveMaintenanceBlock,
+  onCreateMarinaAccessUser,
   currentUser,
   operationsOnly = false,
 }) => {
@@ -76,6 +83,14 @@ const MarinaDashboard: React.FC<Props> = ({
   const [visibleClientPasswords, setVisibleClientPasswords] = useState<Record<string, boolean>>({});
   const [expandedUsageByUser, setExpandedUsageByUser] = useState<Record<string, boolean>>({});
   const [showMaintenanceForm, setShowMaintenanceForm] = useState(false);
+  const [showMarinaAccessForm, setShowMarinaAccessForm] = useState(false);
+  const [creatingMarinaAccess, setCreatingMarinaAccess] = useState(false);
+  const [marinaAccessForm, setMarinaAccessForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    isBlocked: false,
+  });
   const [maintenanceDate, setMaintenanceDate] = useState<string>('');
   const [maintenanceJetName, setMaintenanceJetName] = useState<string>('');
   const [jetNames, setJetNames] = useState<string[]>(() => {
@@ -367,10 +382,23 @@ const MarinaDashboard: React.FC<Props> = ({
     const nextStatus = !user.isBlocked;
     const success = await onUpdateUser({ ...user, isBlocked: nextStatus });
     if (success) {
-      setToastMessage(nextStatus ? 'Cliente bloqueado com sucesso.' : 'Cliente liberado com sucesso.');
+      const userTypeLabel = user.role === 'OPERATIONAL' ? 'Acesso operacional' : 'Cliente';
+      setToastMessage(nextStatus ? `${userTypeLabel} bloqueado com sucesso.` : `${userTypeLabel} liberado com sucesso.`);
       setTimeout(() => setToastMessage(null), 2000);
     }
     setBlockingUserId(null);
+  };
+
+  const deleteOperationalAccess = (user: User) => {
+    if (currentUser?.id === user.id) {
+      alert('Não é possível excluir o acesso que está logado no momento.');
+      return;
+    }
+
+    const confirmed = window.confirm(`Excluir o acesso operacional de ${user.name}?`);
+    if (!confirmed) return;
+
+    onDeleteUser(user.id);
   };
 
   const resetPassword = (user: User) => {
@@ -406,6 +434,47 @@ const MarinaDashboard: React.FC<Props> = ({
       ...prev,
       [userId]: !prev[userId],
     }));
+  };
+
+  const handleMarinaAccessInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
+
+    setMarinaAccessForm(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : (name === 'name' ? toTitleCase(value) : value),
+    }));
+  };
+
+  const submitMarinaAccessCreation = async () => {
+    if (creatingMarinaAccess) return;
+
+    const name = marinaAccessForm.name.trim();
+    const email = marinaAccessForm.email.trim().toLowerCase();
+    const password = marinaAccessForm.password;
+
+    if (!name || !email || !password) {
+      alert('Preencha nome, e-mail e senha para criar o acesso da marina.');
+      return;
+    }
+
+    setCreatingMarinaAccess(true);
+    const result = await onCreateMarinaAccessUser({
+      name,
+      email,
+      password,
+      isBlocked: marinaAccessForm.isBlocked,
+    });
+    setCreatingMarinaAccess(false);
+
+    if (!result.success) {
+      alert(result.message);
+      return;
+    }
+
+    setToastMessage(result.message);
+    setTimeout(() => setToastMessage(null), 2000);
+    setMarinaAccessForm({ name: '', email: '', password: '', isBlocked: false });
+    setShowMarinaAccessForm(false);
   };
 
 
@@ -469,6 +538,7 @@ const MarinaDashboard: React.FC<Props> = ({
   };
 
   const filteredUsers = useMemo(() => users
+    .filter(u => u.role === 'CLIENT')
     .filter(u => u.name.toLowerCase().includes(clientSearch.toLowerCase()))
     .sort((a, b) => {
       const aKey = a.ownerType === 'COTISTA'
@@ -480,6 +550,10 @@ const MarinaDashboard: React.FC<Props> = ({
       return aKey.localeCompare(bKey);
     }), [users, clientSearch]);
 
+  const operationalUsers = useMemo(() => users
+    .filter(u => u.role === 'OPERATIONAL')
+    .sort((a, b) => a.name.localeCompare(b.name)), [users]);
+
   const visibleClientUsers = useMemo(
     () => filteredUsers.slice(0, clientsVisibleCount),
     [filteredUsers, clientsVisibleCount]
@@ -487,6 +561,7 @@ const MarinaDashboard: React.FC<Props> = ({
 
   // Filtered users for finance tab
   const filteredFinanceUsers = useMemo(() => users
+    .filter(u => u.role === 'CLIENT')
     .filter(u => u.name.toLowerCase().includes(financeSearch.toLowerCase()))
     .sort((a, b) => a.name.localeCompare(b.name)), [users, financeSearch]);
 
@@ -1021,6 +1096,125 @@ const MarinaDashboard: React.FC<Props> = ({
       {activeTab === 'CLIENTS' && (
         <div className="space-y-4 animate-in fade-in duration-500">
           <h3 className="text-lg font-bold text-blue-900">Cadastro do cliente</h3>
+          <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold text-blue-900">Acesso ao App Marina</p>
+                <p className="text-xs text-gray-500">Usuário criado aqui acessa apenas a aba Operações.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMarinaAccessForm(prev => !prev)}
+                className="px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition"
+              >
+                {showMarinaAccessForm ? 'Fechar' : '+ Cadastrar acesso'}
+              </button>
+            </div>
+
+            {showMarinaAccessForm && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border-t pt-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">Nome</label>
+                  <input
+                    name="name"
+                    className="w-full p-2 border rounded"
+                    value={marinaAccessForm.name}
+                    onChange={handleMarinaAccessInputChange}
+                    placeholder="Nome do usuário"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">E-mail</label>
+                  <input
+                    name="email"
+                    type="email"
+                    className="w-full p-2 border rounded"
+                    value={marinaAccessForm.email}
+                    onChange={handleMarinaAccessInputChange}
+                    placeholder="usuario@marina.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">Senha</label>
+                  <input
+                    name="password"
+                    type="password"
+                    className="w-full p-2 border rounded"
+                    value={marinaAccessForm.password}
+                    onChange={handleMarinaAccessInputChange}
+                    placeholder="Senha de acesso"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      name="isBlocked"
+                      checked={marinaAccessForm.isBlocked}
+                      onChange={handleMarinaAccessInputChange}
+                    />
+                    Criar já bloqueado
+                  </label>
+                </div>
+                <div className="md:col-span-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={submitMarinaAccessCreation}
+                    disabled={creatingMarinaAccess}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {creatingMarinaAccess ? 'Criando...' : 'Salvar acesso'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-bold text-blue-900">Usuários operacionais cadastrados</p>
+              <span className="text-xs font-bold text-gray-500">{operationalUsers.length} acesso(s)</span>
+            </div>
+
+            {operationalUsers.length === 0 ? (
+              <p className="text-sm text-gray-500">Nenhum acesso operacional cadastrado.</p>
+            ) : (
+              <div className="space-y-2">
+                {operationalUsers.map((operationalUser) => (
+                  <div
+                    key={operationalUser.id}
+                    className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 p-3 rounded-lg border border-gray-200 bg-gray-50"
+                  >
+                    <div>
+                      <p className="text-sm font-bold text-gray-900">{operationalUser.name}</p>
+                      <p className="text-xs text-gray-600">{operationalUser.email}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleBlock(operationalUser)}
+                        disabled={blockingUserId === operationalUser.id}
+                        className={`w-36 py-2 rounded-lg text-xs font-bold transition disabled:opacity-60 disabled:cursor-not-allowed ${operationalUser.isBlocked ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}`}
+                      >
+                        {blockingUserId === operationalUser.id
+                          ? 'SALVANDO...'
+                          : (operationalUser.isBlocked ? 'BLOQUEADO' : 'LIBERADO')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteOperationalAccess(operationalUser)}
+                        className="px-3 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs font-bold hover:bg-red-100 transition"
+                        title="Excluir acesso operacional"
+                      >
+                        Excluir
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
             <label className="block text-xs font-bold text-gray-500 mb-1">Pesquisar cliente</label>
             <input
